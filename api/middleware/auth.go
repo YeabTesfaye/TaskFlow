@@ -28,7 +28,7 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			TrimSpace(authorizationHeader), "Bearer ")
 		claims := &UserClaims{}
 
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
 			return []byte(os.Getenv("JWT_SECRET")), nil
 		})
 

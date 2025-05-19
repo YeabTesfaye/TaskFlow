@@ -20,7 +20,7 @@ type Task struct {
 	UpdatedAt   time.Time          `json:"updated_at" bson:"updated_at"`
 }
 
-func (t *Task) Valiate() error {
+func (t *Task) Validate() error {  // Fixed typo in method name
 	// Validate Title
 	t.Title = strings.TrimSpace(t.Title)
 	if len(t.Title) < 3 || len(t.Title) > 100 {

@@ -9,7 +9,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var taskCollection = configs.GetCollection(configs.DB, "tasks")
@@ -29,7 +32,7 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 	task.UpdatedAt = time.Now()
 
 	// Validate task input
-	if err := task.Valiate(); err != nil {
+	if err := task.Validate(); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
@@ -72,4 +75,218 @@ func GetUserTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(tasks)
+}
+
+func GetTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// GET task ID from URL parameters
+	params := mux.Vars(r)
+	taskID, err := primitive.ObjectIDFromHex(params["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid task ID"})
+		return
+	}
+
+	// Get user claims from context
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Find task by ID and user ID to ensure users can only access their own tasks
+	var task models.Task
+	err = taskCollection.FindOne(ctx, bson.M{
+		"_id":     taskID,
+		"user_id": userClaims.ID,
+	}).Decode(&task)
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Task not found or unauthorized"})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	json.NewEncoder(w).Encode(task)
+}
+func UpdateTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get task ID from URL parameters
+	params := mux.Vars(r)
+	taskID, err := primitive.ObjectIDFromHex(params["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid task ID"})
+		return
+	}
+
+	// Get user claims from context
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+
+	// Check if the task exists and belongs to the user
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var existingTask models.Task
+	err = taskCollection.FindOne(ctx, bson.M{
+		"_id":     taskID,
+		"user_id": userClaims.ID,
+	}).Decode(&existingTask)
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Task not found or unauthorized"})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	// Decode the request body
+	var task models.Task
+	err = json.NewDecoder(r.Body).Decode(&task)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	// Override the user_id with the one from JWT token
+	task.UserID = userClaims.ID
+
+	// Validate the task
+	if validationErr := task.Validate(); validationErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": validationErr.Error()})
+		return
+	}
+
+	// Prepare update data
+	update := bson.M{
+		"$set": bson.M{
+			"title":       task.Title,
+			"description": task.Description,
+			"due_date":    task.DueDate,
+			"priority":    task.Priority,
+			"status":      task.Status,
+			"updated_at":  time.Now(),
+		},
+	}
+
+	// Update the task
+	result, err := taskCollection.UpdateOne(ctx, bson.M{
+		"_id":     taskID,
+		"user_id": userClaims.ID,
+	}, update)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	if result.ModifiedCount == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Task not found or unauthorized"})
+		return
+	}
+
+	// Return the updated task
+	var updatedTask models.Task
+	err = taskCollection.FindOne(ctx, bson.M{"_id": taskID}).Decode(&updatedTask)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Error retrieving updated task"})
+		return
+	}
+
+	json.NewEncoder(w).Encode(updatedTask)
+}
+
+func DeleteTask(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	params := mux.Vars(r)
+	taskID, err := primitive.ObjectIDFromHex(params["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid task ID"})
+		return
+	}
+
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Ensure user can only delete their own tasks
+	filter := bson.M{"_id": taskID, "user_id": userClaims.ID}
+
+	result, err := taskCollection.DeleteOne(ctx, filter)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	if result.DeletedCount == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Task not found or unauthorized"})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"message": "Task deleted successfully"})
+}
+
+func GetTaskStats(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+
+    userClaims := r.Context().Value("user").(*middleware.UserClaims)
+    
+    ctx := context.Background()
+    pipeline := []bson.M{
+        {"$match": bson.M{"user_id": userClaims.ID}},
+        {"$group": bson.M{
+            "_id": nil,
+            "total": bson.M{"$sum": 1},
+            "completed": bson.M{"$sum": bson.M{
+                "$cond": []any{bson.M{"$eq": []string{"$status", "completed"}}, 1, 0},
+            }},
+            "pending": bson.M{"$sum": bson.M{
+                "$cond": []any{bson.M{"$eq": []string{"$status", "pending"}}, 1, 0},
+            }},
+            "high_priority": bson.M{"$sum": bson.M{
+                "$cond": []any{bson.M{"$eq": []string{"$priority", "high"}}, 1, 0},
+            }},
+        }},
+    }
+
+    cursor, err := taskCollection.Aggregate(ctx, pipeline)
+    if err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch statistics"})
+        return
+    }
+
+    var stats []bson.M
+    if err = cursor.All(ctx, &stats); err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        json.NewEncoder(w).Encode(map[string]string{"error": "Failed to process statistics"})
+        return
+    }
+
+    if len(stats) == 0 {
+        stats = []bson.M{{"total": 0, "completed": 0, "pending": 0, "high_priority": 0}}
+    }
+
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(stats[0])
 }

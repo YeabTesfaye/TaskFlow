@@ -8,11 +8,13 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type LoginRequest struct {
@@ -24,25 +26,37 @@ type LoginResponse struct {
 	Token string      `json:"token"`
 	User  models.User `json:"user"`
 }
+type UpdateNameRequest struct {
+	Name string `json:"name"`
+}
+type PasswordChangeRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
 
 var userCollection = configs.GetCollection(configs.DB, "users")
 
-func CreateUser(w http.ResponseWriter, r *http.Request) {
+func SignUp(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var user models.User
-	_ = json.NewDecoder(r.Body).Decode(&user)
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
 
-	// Validate user input
-	if err := user.Validate(); err != nil {
+	// Validate user creation request
+	if err := utils.ValidateUserCreation(&user); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
-	// Hash the password using the utility funtion
-	hashedPassword, err := utils.HashPassword(user.Password)
+	
 
+	// Hash the password
+	hashedPassword, err := utils.HashPassword(user.Password)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Error hashing password"})
@@ -61,28 +75,9 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Remove password from response
+	user.Password = ""
 	json.NewEncoder(w).Encode(result)
-}
-
-func GetUser(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	params := mux.Vars(r)
-	id, _ := primitive.ObjectIDFromHex(params["id"])
-
-	var user models.User
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	err := userCollection.FindOne(ctx, bson.M{"_id": id}).Decode(&user)
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"error": "User not found"})
-		return
-	}
-
-	json.NewEncoder(w).Encode(user)
 }
 
 func LoginUser(w http.ResponseWriter, r *http.Request) {
@@ -130,4 +125,203 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		User:  user,
 	}
 	json.NewEncoder(w).Encode(response)
+}
+
+func DeleteMe(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get user claims from context
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+
+	// Convert string ID to ObjectID
+	userID, err := primitive.ObjectIDFromHex(userClaims.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid user ID format"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// First, delete all tasks associated with the user
+	_, err = taskCollection.DeleteMany(ctx, bson.M{"user_id": userClaims.ID})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete user's tasks"})
+		return
+	}
+
+	// Then delete the user
+	result, err := userCollection.DeleteOne(ctx, bson.M{"_id": userID})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete user account"})
+		return
+	}
+
+	if result.DeletedCount == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "User not found"})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "User account and all associated tasks deleted successfully"})
+}
+
+func UpdateMe(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get user claims from context
+	userClaim := r.Context().Value("user").(*middleware.UserClaims)
+
+	// Convert string ID to objectID
+	userID, err := primitive.ObjectIDFromHex(userClaim.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid user ID format"})
+		return
+	}
+
+	// Parse request body
+	var req UpdateNameRequest
+	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+	// Validate new name
+	req.Name = strings.TrimSpace(req.Name)
+	if len(req.Name) < 3 || len(req.Name) > 50 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Name must be between 3 and 50 characters"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Update only the name field
+	update := bson.M{
+		"$set": bson.M{
+			"name": req.Name,
+		},
+	}
+
+	result, err := userCollection.UpdateOne(ctx, bson.M{"_id": userID}, update)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update user name"})
+		return
+	}
+	if result.ModifiedCount == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "User not found"})
+		return
+	}
+
+	// Return success response
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Name updated successfully"})
+}
+func GetMe(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get user claims from context
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+
+	// Convert string ID to ObjectID
+	userID, err := primitive.ObjectIDFromHex(userClaims.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid user ID format"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Find user by ID
+	var user models.User
+	err = userCollection.FindOne(ctx, bson.M{"_id": userID}).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "User not found"})
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch user"})
+		return
+	}
+
+	// Remove sensitive information
+	user.Password = ""
+
+	// Return user data
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(user)
+}
+
+func ChangePassword(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+
+	userID, err := primitive.ObjectIDFromHex(userClaims.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid user ID"})
+		return
+	}
+	var req PasswordChangeRequest
+	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return
+	}
+
+	// Get current user
+	var user models.User
+	ctx := context.Background()
+	err = userCollection.FindOne(ctx, bson.M{"_id": userID}).Decode(&user)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch user"})
+		return
+	}
+
+	// Verify current password
+	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)); compareErr != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Current password is incorrect"})
+		return
+	}
+
+	// Validate new password
+	if err := utils.ValidatePassword(req.NewPassword); err != nil {
+	    w.WriteHeader(http.StatusBadRequest)
+	    json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	    return
+	}
+	
+	// Hash new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to hash password"})
+		return
+	}
+
+	// Update password
+	update := bson.M{"$set": bson.M{"password": string(hashedPassword)}}
+	_, err = userCollection.UpdateOne(ctx, bson.M{"_id": userID}, update)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update password"})
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Password updated successfully"})
 }
