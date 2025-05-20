@@ -67,27 +67,95 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 func GetUserTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	useClaims := r.Context().Value("user").(*middleware.UserClaims)
+	// Get user claims from context
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+
+	// Parse query parameters
+	query := r.URL.Query()
+	page, _ := strconv.ParseInt(query.Get("page"), 10, 64)
+	limit, _ := strconv.ParseInt(query.Get("limit"), 10, 64)
+	search := query.Get("search")
+	priority := query.Get("priority")
+	status := query.Get("status")
+
+	// Set default pagination values
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10 // Default limit
+	}
+
+	// Calculate skip value for pagination
+	skip := (page - 1) * limit
+
+	// Build filter
+	filter := bson.M{"user_id": userClaims.ID}
+
+	// Add search conditions if provided
+	if search != "" {
+		filter["$or"] = []bson.M{
+			{"title": bson.M{"$regex": search, "$options": "i"}},
+			{"description": bson.M{"$regex": search, "$options": "i"}},
+		}
+	}
+
+	// Add priority filter if provided
+	if priority != "" {
+		filter["priority"] = priority
+	}
+
+	// Add status filter if provided
+	if status != "" {
+		filter["status"] = status
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
 	defer cancel()
 
-	cursor, err := taskCollection.Find(ctx, bson.M{"user_id": useClaims.ID})
-
+	// Get total count for pagination
+	totalCount, err := taskCollection.CountDocuments(ctx, filter)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Error counting tasks"})
 		return
 	}
 
+	// Configure find options for pagination and sorting
+	opts := options.Find().
+		SetSort(bson.M{"created_at": -1}). // Sort by creation date, newest first
+		SetSkip(skip).
+		SetLimit(limit)
+
+	// Execute query
+	cursor, err := taskCollection.Find(ctx, filter, opts)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Error fetching tasks"})
+		return
+	}
+
+	// Decode results
 	var tasks []models.Task
 	if err = cursor.All(ctx, &tasks); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Error decoding tasks"})
 		return
 	}
-	json.NewEncoder(w).Encode(tasks)
+
+	// Calculate total pages
+	totalPages := int64(math.Ceil(float64(totalCount) / float64(limit)))
+
+	// Prepare response
+	response := map[string]interface{}{
+		"tasks":       tasks,
+		"total":       totalCount,
+		"page":        page,
+		"limit":       limit,
+		"total_pages": totalPages,
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
 
 func GetTask(w http.ResponseWriter, r *http.Request) {
@@ -302,122 +370,4 @@ func GetTaskStats(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(stats[0])
-}
-
-func SearchTasks(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// Get user claims from context
-	userClaims := r.Context().Value("user").(*middleware.UserClaims)
-
-	// Parse query parameters
-	query := TaskSearchQuery{
-		Search:   r.URL.Query().Get("search"),
-		Priority: r.URL.Query().Get("priority"),
-		Status:   r.URL.Query().Get("status"),
-		Page:     1,  // Default values
-		Limit:    10, // Default values
-	}
-
-	// Parse pagination parameters
-	if page := r.URL.Query().Get("page"); page != "" {
-		if pageNum, err := strconv.Atoi(page); err == nil && pageNum > 0 {
-			query.Page = pageNum
-		}
-	}
-	if limit := r.URL.Query().Get("limit"); limit != "" {
-		if limitNum, err := strconv.Atoi(limit); err == nil && limitNum > 0 {
-			query.Limit = limitNum
-		}
-	}
-
-	// Parse date range if provided
-	if startDate := r.URL.Query().Get("start_date"); startDate != "" {
-		if parsed, err := time.Parse(time.RFC3339, startDate); err == nil {
-			query.StartDate = parsed
-		}
-	}
-	if endDate := r.URL.Query().Get("end_date"); endDate != "" {
-		if parsed, err := time.Parse(time.RFC3339, endDate); err == nil {
-			query.EndDate = parsed
-		}
-	}
-
-	// Build the filter
-	filter := bson.M{"user_id": userClaims.ID}
-
-	// Add search condition if search term is provided
-	if query.Search != "" {
-		filter["$or"] = []bson.M{
-			{"title": bson.M{"$regex": query.Search, "$options": "i"}},
-			{"description": bson.M{"$regex": query.Search, "$options": "i"}},
-		}
-	}
-
-	// Add priority filter if provided
-	if query.Priority != "" {
-		filter["priority"] = query.Priority
-	}
-
-	// Add status filter if provided
-	if query.Status != "" {
-		filter["status"] = query.Status
-	}
-
-	// Add date range filter if provided
-	if !query.StartDate.IsZero() || !query.EndDate.IsZero() {
-		dateFilter := bson.M{}
-		if !query.StartDate.IsZero() {
-			dateFilter["$gte"] = query.StartDate
-		}
-		if !query.EndDate.IsZero() {
-			dateFilter["$lte"] = query.EndDate
-		}
-		filter["due_date"] = dateFilter
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Get total count for pagination
-	totalCount, err := taskCollection.CountDocuments(ctx, filter)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Error counting tasks"})
-		return
-	}
-
-	// Calculate skip value for pagination
-	skip := (query.Page - 1) * query.Limit
-
-	// Find tasks with pagination
-	opts := options.Find().
-		SetSkip(int64(skip)).
-		SetLimit(int64(query.Limit)).
-		SetSort(bson.M{"created_at": -1}) // Sort by creation date, newest first
-
-	cursor, err := taskCollection.Find(ctx, filter, opts)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Error finding tasks"})
-		return
-	}
-
-	var tasks []models.Task
-	if err = cursor.All(ctx, &tasks); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Error decoding tasks"})
-		return
-	}
-
-	// Return response with pagination info
-	response := map[string]interface{}{
-		"tasks":       tasks,
-		"total":       totalCount,
-		"page":        query.Page,
-		"limit":       query.Limit,
-		"total_pages": math.Ceil(float64(totalCount) / float64(query.Limit)),
-	}
-
-	json.NewEncoder(w).Encode(response)
 }
