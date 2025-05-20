@@ -1,6 +1,7 @@
 package models
 
 import (
+	"api/validation"
 	"errors"
 	"net/mail"
 	"strings"
@@ -34,12 +35,9 @@ func (u *User) Validate() error {
 		return errors.New("invalid email format")
 	}
 
-	// validate password
-	if len(u.Password) < 8 {
-		return errors.New("password must be at least 8 characters long")
-	}
-	if len(u.Password) > 72 {
-		return errors.New("password is too long")
+	// validate password using the enhanced password validation 
+	if err := validation.ValidatePassword(u.Password); err != nil{
+		return err
 	}
 	return nil
 }

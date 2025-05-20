@@ -12,47 +12,55 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// setupPublicRoutes configures routes that don't require authentication
+func setupPublicRoutes(r *mux.Router) {
+	// Auth routes
+	r.HandleFunc("/api/users", controllers.SignUp).Methods("POST")
+	r.HandleFunc("/api/login", controllers.LoginUser).Methods("POST")
+}
+
+// setupUserRoutes configures user-related protected routes
+func setupUserRoutes(r *mux.Router) {
+	// User management routes
+	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.GetMe)).Methods("GET")
+	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.UpdateMe)).Methods("PATCH")
+	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.DeleteMe)).Methods("DELETE")
+	r.HandleFunc("/api/users/password", middleware.AuthMiddleware(controllers.ChangePassword)).Methods("POST")
+}
+
+// setupTaskRoutes configures task-related protected routes
+func setupTaskRoutes(r *mux.Router) {
+	// Task utility routes
+	r.HandleFunc("/api/tasks/search", middleware.AuthMiddleware(controllers.SearchTasks)).Methods("GET")
+	r.HandleFunc("/api/tasks/stats", middleware.AuthMiddleware(controllers.GetTaskStats)).Methods("GET")
+
+	// Task management routes
+	r.HandleFunc("/api/tasks", middleware.AuthMiddleware(controllers.CreateTask)).Methods("POST")
+	r.HandleFunc("/api/tasks", middleware.AuthMiddleware(controllers.GetUserTasks)).Methods("GET")
+	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.GetTask)).Methods("GET")
+	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.UpdateTask)).Methods("PUT")
+	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.DeleteTask)).Methods("DELETE")
+
+}
+
 func main() {
-	// connect to MongoDB
+	// Connect to MongoDB
 	configs.ConnectDB()
 
 	// Create router
 	r := mux.NewRouter()
 
-	// Public routes
-	r.HandleFunc("/api/users", controllers.SignUp).
-		Methods("POST")
-	r.HandleFunc("/api/login", controllers.LoginUser).
-		Methods("POST")
-
-	// Protected routes
-	r.HandleFunc("/api/tasks", middleware.
-		AuthMiddleware(controllers.CreateTask)).Methods("POST")
-	r.HandleFunc("/api/tasks", middleware.
-		AuthMiddleware(controllers.GetUserTasks)).Methods("GET")
-	r.HandleFunc("/api/tasks/{id}", middleware.
-		AuthMiddleware(controllers.UpdateTask)).Methods("PUT")
-	r.HandleFunc("/api/tasks/{id}", middleware.
-		AuthMiddleware(controllers.DeleteTask)).Methods("DELETE")
-	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.GetTask)).
-		Methods("GET")
-	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.DeleteMe)).
-		Methods("DELETE")
-		// ... existing code ...
-	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.UpdateMe)).
-		Methods("PATCH")
-	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.GetMe)).
-		Methods("GET")
-	r.HandleFunc("/api/users/password", middleware.
-		AuthMiddleware(controllers.ChangePassword)).Methods("POST")
-	r.HandleFunc("/api/tasks/stats", middleware.
-	AuthMiddleware(controllers.GetTaskStats)).Methods("GET")
+	// Setup routers by category
+	setupPublicRoutes(r)
+	setupUserRoutes(r)
+	setupTaskRoutes(r)
 
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	fmt.Printf("Server is running on port %s\n", port)
+
+	fmt.Printf("Server is running on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, r))
 }

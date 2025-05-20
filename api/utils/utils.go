@@ -5,9 +5,8 @@ import (
 	"api/models"
 	"context"
 	"errors"
-	"regexp"
-	"time"
 
+	"time"
 	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -76,26 +75,8 @@ func ValidateUserCreation(user *models.User) error {
 	if exists {
 		return errors.New("email already exists")
 	}
+	
 
 	return nil
 }
 
-// ValidatePassword checks if a password meets security requirement 
-
-func ValidatePassword(password string) error {
-	if len(password) < 8 {
-		return errors.New("password must be at least 8 characters long")
-	}
-	if len(password) > 72 {
-		return errors.New("password is too long (maximum 72 characters)")
-	}
-
-	// Regular expression pattern for all the required conditions
-	var re = regexp.MustCompile(`^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,72}$`)
-
-	if !re.MatchString(password) {
-		return errors.New("password must contain at least one uppercase letter, one lowercase letter, one number, and one special character")
-	}
-
-	return nil
-}
