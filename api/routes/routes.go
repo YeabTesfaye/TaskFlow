@@ -1,58 +1,60 @@
 package routes
 
-import (
-	"api/controllers"
-	"api/middleware"
+// package routes
 
-	"github.com/gorilla/mux"
-)
+// import (
+// 	"api/controllers"
+// 	"api/middleware"
 
-// SetupRoutes configures all application routes
-func SetupRoutes(r *mux.Router) {
-	// Add error handler middleware
-	r.Use(middleware.ErrorHandler)
+// 	"github.com/gorilla/mux"
+// )
 
-	// Setup routes by category
-	setupPublicRoutes(r)
-	setupUserRoutes(r)
-	setupTaskRoutes(r)
-}
+// // SetupRoutes configures all application routes
+// func SetupRoutes(r *mux.Router) {
+// 	// Add error handler middleware
+// 	r.Use(middleware.ErrorHandler)
 
-// setupPublicRoutes configures routes that don't require authentication
-func setupPublicRoutes(r *mux.Router) {
-	// Auth routes
-	r.HandleFunc("/api/users", controllers.SignUp).Methods("POST")
-	r.HandleFunc("/api/login", controllers.LoginUser).Methods("POST")
-}
+// 	// Setup routes by category
+// 	setupPublicRoutes(r)
+// 	setupUserRoutes(r)
+// 	setupTaskRoutes(r)
+// }
 
-// setupUserRoutes configures user-related protected routes
-func setupUserRoutes(r *mux.Router) {
-	// User management routes
-	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.GetMe)).
-		Methods("GET")
-	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.UpdateMe)).
-		Methods("PATCH")
-	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.DeleteMe)).
-		Methods("DELETE")
-	r.HandleFunc("/api/users/password", middleware.AuthMiddleware(controllers.ChangePassword)).
-		Methods("POST")
-}
+// // setupPublicRoutes configures routes that don't require authentication
+// func setupPublicRoutes(r *mux.Router) {
+// 	// Auth routes
+// 	r.HandleFunc("/api/users", controllers.SignUp).Methods("POST")
+// 	r.HandleFunc("/api/login", controllers.LoginUser).Methods("POST")
+// }
 
-// setupTaskRoutes configures task-related protected routes
-func setupTaskRoutes(r *mux.Router) {
-	// Task utility routes
-	r.HandleFunc("/api/tasks/stats", middleware.AuthMiddleware(controllers.GetTaskStats)).
-		Methods("GET")
+// // setupUserRoutes configures user-related protected routes
+// func setupUserRoutes(r *mux.Router) {
+// 	// User management routes
+// 	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.GetMe)).
+// 		Methods("GET")
+// 	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.UpdateMe)).
+// 		Methods("PATCH")
+// 	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.DeleteMe)).
+// 		Methods("DELETE")
+// 	r.HandleFunc("/api/users/password", middleware.AuthMiddleware(controllers.ChangePassword)).
+// 		Methods("POST")
+// }
 
-	// Task management routes
-	r.HandleFunc("/api/tasks", middleware.AuthMiddleware(controllers.CreateTask)).
-		Methods("POST")
-	r.HandleFunc("/api/tasks", middleware.AuthMiddleware(controllers.GetUserTasks)).
-		Methods("GET")
-	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.GetTask)).
-		Methods("GET")
-	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.UpdateTask)).
-		Methods("PUT")
-	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.DeleteTask)).
-		Methods("DELETE")
-}
+// // setupTaskRoutes configures task-related protected routes
+// func setupTaskRoutes(r *mux.Router) {
+// 	// Task utility routes
+// 	r.HandleFunc("/api/tasks/stats", middleware.AuthMiddleware(controllers.GetTaskStats)).
+// 		Methods("GET")
+
+// 	// Task management routes
+// 	r.HandleFunc("/api/tasks", middleware.AuthMiddleware(controllers.CreateTask)).
+// 		Methods("POST")
+// 	r.HandleFunc("/api/tasks", middleware.AuthMiddleware(controllers.GetUserTasks)).
+// 		Methods("GET")
+// 	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.GetTask)).
+// 		Methods("GET")
+// 	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.UpdateTask)).
+// 		Methods("PUT")
+// 	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.DeleteTask)).
+// 		Methods("DELETE")
+// }

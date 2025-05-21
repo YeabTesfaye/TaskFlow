@@ -2,6 +2,7 @@ package main
 
 import (
 	"api/configs"
+	"api/jobs"
 	"api/routes"
 	"fmt"
 	"log"
@@ -15,11 +16,15 @@ func main() {
 	// Connect to MongoDB
 	configs.ConnectDB()
 
+	// Start the reminder job
+	jobs.StartReminderJob()
+
 	// Create router
 	r := mux.NewRouter()
 
-	// Setup routes
-	routes.SetupRoutes(r)
+	// Register routes explicitly
+	routes.RegisterUserRoutes(r)
+	routes.RegisterTaskRoutes(r)
 
 	// Start server
 	port := os.Getenv("PORT")

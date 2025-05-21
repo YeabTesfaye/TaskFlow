@@ -54,8 +54,6 @@ func SignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	
-
 	// Hash the password
 	hashedPassword, err := utils.HashPassword(user.Password)
 	if err != nil {
@@ -167,8 +165,7 @@ func DeleteMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "User account and all associated tasks deleted successfully"})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func UpdateMe(w http.ResponseWriter, r *http.Request) {
@@ -216,9 +213,9 @@ func UpdateMe(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update user name"})
 		return
 	}
+
 	if result.ModifiedCount == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"error": "User not found"})
+		json.NewEncoder(w).Encode(map[string]string{"message": "Name is already up to date"})
 		return
 	}
 
@@ -302,11 +299,11 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	// Validate new password
 	if err := validation.ValidatePassword(req.NewPassword); err != nil {
-	    w.WriteHeader(http.StatusBadRequest)
-	    json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-	    return
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
 	}
-	
+
 	// Hash new password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {

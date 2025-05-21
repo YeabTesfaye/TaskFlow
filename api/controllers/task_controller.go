@@ -36,7 +36,6 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 	userClaims := r.Context().Value("user").(*middleware.UserClaims)
 
 	var task models.Task
-
 	_ = json.NewDecoder(r.Body).Decode(&task)
 
 	// Set user ID and timestamps
@@ -55,13 +54,17 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	result, err := taskCollection.InsertOne(ctx, task)
-
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
-	json.NewEncoder(w).Encode(result)
+
+	// Respond with only the taskId
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{
+		"taskId": result.InsertedID.(primitive.ObjectID).Hex(),
+	})
 }
 
 func GetUserTasks(w http.ResponseWriter, r *http.Request) {
@@ -324,50 +327,7 @@ func DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{"message": "Task deleted successfully"})
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func GetTaskStats(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 
-	userClaims := r.Context().Value("user").(*middleware.UserClaims)
-
-	ctx := context.Background()
-	pipeline := []bson.M{
-		{"$match": bson.M{"user_id": userClaims.ID}},
-		{"$group": bson.M{
-			"_id":   nil,
-			"total": bson.M{"$sum": 1},
-			"completed": bson.M{"$sum": bson.M{
-				"$cond": []any{bson.M{"$eq": []string{"$status", "completed"}}, 1, 0},
-			}},
-			"pending": bson.M{"$sum": bson.M{
-				"$cond": []any{bson.M{"$eq": []string{"$status", "pending"}}, 1, 0},
-			}},
-			"high_priority": bson.M{"$sum": bson.M{
-				"$cond": []any{bson.M{"$eq": []string{"$priority", "high"}}, 1, 0},
-			}},
-		}},
-	}
-
-	cursor, err := taskCollection.Aggregate(ctx, pipeline)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch statistics"})
-		return
-	}
-
-	var stats []bson.M
-	if err = cursor.All(ctx, &stats); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to process statistics"})
-		return
-	}
-
-	if len(stats) == 0 {
-		stats = []bson.M{{"total": 0, "completed": 0, "pending": 0, "high_priority": 0}}
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(stats[0])
-}
