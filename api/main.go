@@ -3,6 +3,7 @@ package main
 import (
 	"api/configs"
 	"api/jobs"
+	"api/middleware"
 	"api/routes"
 	"fmt"
 	"log"
@@ -21,6 +22,12 @@ func main() {
 
 	// Create router
 	r := mux.NewRouter()
+
+	// Add rate limiting middleware
+	r.Use(middleware.RateLimit)
+
+	// Add input sanitize middleware
+	r.Use(middleware.SanitizeInput)
 
 	// Register routes explicitly
 	routes.RegisterUserRoutes(r)
