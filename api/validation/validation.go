@@ -3,6 +3,7 @@ package validation
 import (
 	"errors"
 	"regexp"
+	"time"
 )
 
 func ValidatePassword(password string) error {
@@ -34,4 +35,18 @@ func ValidatePassword(password string) error {
 	}
 
 	return nil
+}
+
+func IsValidTimezone(tz string) bool {
+	_, err := time.LoadLocation(tz)
+	return err == nil
+}
+
+func IsValidImageType(contentType string) bool {
+	validTypes := map[string]bool{
+		"image/jpeg": true,
+		"image/png":  true,
+		"image/gif":  true,
+	}
+	return validTypes[contentType]
 }

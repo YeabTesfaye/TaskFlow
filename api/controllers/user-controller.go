@@ -298,7 +298,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate new password
-	if err := validation.ValidatePassword(req.NewPassword); err != nil {
+	if err = validation.ValidatePassword(req.NewPassword); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return

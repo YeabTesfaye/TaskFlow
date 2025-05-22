@@ -21,4 +21,16 @@ func RegisterUserRoutes(r *mux.Router) {
 		Methods("DELETE")
 	r.HandleFunc("/api/users/password", middleware.AuthMiddleware(
 		controllers.ChangePassword)).Methods("POST")
+
+	// Profile picture routes
+	r.HandleFunc("/api/users/profile-picture", middleware.
+		AuthMiddleware(controllers.UpdateProfilePicture)).Methods("POST")
+	// User preferences routes
+	r.HandleFunc("/api/users/preferences", middleware.
+		AuthMiddleware(controllers.UpdatePreferences)).Methods("PUT")
+	// Email verification routes
+	r.HandleFunc("/api/users/send-verification", middleware.
+		AuthMiddleware(controllers.SendVerificationEmail)).Methods("POST")
+	r.HandleFunc("/api/users/verify-email", controllers.VerifyEmail).
+		Methods("GET")
 }

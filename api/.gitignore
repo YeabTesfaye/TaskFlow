@@ -24,7 +24,8 @@ go.work
 .vscode/
 
 # Log file 
-/logs 
+logs/
+
 
 # OS specific files
 .DS_Store

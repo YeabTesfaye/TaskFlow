@@ -90,13 +90,13 @@ func UpdateComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var updateComment models.Comment
-	if err := json.NewDecoder(r.Body).Decode(&updateComment); err != nil {
+	if err = json.NewDecoder(r.Body).Decode(&updateComment); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
 		return
 	}
 
-	if err := updateComment.Validate(); err != nil {
+	if err = updateComment.Validate(); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
