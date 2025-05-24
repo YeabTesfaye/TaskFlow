@@ -4,49 +4,48 @@ import (
 	"api/configs"
 	"api/middleware"
 	"api/models"
+	"api/utils"
 	"context"
 	"encoding/json"
-	"math"
 	"net/http"
-	"strconv"
 	"time"
 
-	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-type TaskSearchQuery struct {
-	Search    string    `json:"search"`     // Search in title and description
-	StartDate time.Time `json:"start_date"` // Filter by date range
-	EndDate   time.Time `json:"end_date"`
-	Priority  string    `json:"priority"` // Filter by priority
-	Status    string    `json:"status"`   // Filter by status
-	Page      int       `json:"page"`     // Pagination
-	Limit     int       `json:"limit"`    // Items per page
-}
 
 var taskCollection = configs.GetCollection(configs.DB, "tasks")
 
-func CreateTask(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+// Common task operations
+func getTaskByID(ctx context.Context, taskID primitive.ObjectID, userID string) (*models.Task, error) {
+	var task models.Task
+	err := taskCollection.FindOne(ctx, bson.M{
+		"_id":     taskID,
+		"user_id": userID,
+	}).Decode(&task)
+	return &task, err
+}
 
+func validateAndPrepareTask(task *models.Task, userID string) error {
+	task.UserID = userID
+	task.UpdatedAt = time.Now()
+	return task.Validate()
+}
+
+// HTTP Handlers
+func CreateTask(w http.ResponseWriter, r *http.Request) {
 	userClaims := r.Context().Value("user").(*middleware.UserClaims)
 
 	var task models.Task
-	_ = json.NewDecoder(r.Body).Decode(&task)
+	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+		utils.SendError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
 
-	// Set user ID and timestamps
-	task.UserID = userClaims.ID
 	task.CreatedAt = time.Now()
-	task.UpdatedAt = time.Now()
-
-	// Validate task input
-	if err := task.Validate(); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	if err := validateAndPrepareTask(&task, userClaims.ID); err != nil {
+		utils.SendError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -55,205 +54,118 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 
 	result, err := taskCollection.InsertOne(ctx, task)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		utils.SendError(w, "Failed to create task", http.StatusInternalServerError)
 		return
 	}
 
-	// Respond with only the taskId
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{
+	utils.SendJSON(w, map[string]string{
 		"taskId": result.InsertedID.(primitive.ObjectID).Hex(),
 	})
 }
 
 func GetUserTasks(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// Get user claims from context
 	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+	params := utils.GetPaginationFromRequest(r)
 
-	// Parse query parameters
-	query := r.URL.Query()
-	page, _ := strconv.ParseInt(query.Get("page"), 10, 64)
-	limit, _ := strconv.ParseInt(query.Get("limit"), 10, 64)
-	search := query.Get("search")
-	priority := query.Get("priority")
-	status := query.Get("status")
-
-	// Set default pagination values
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 100 {
-		limit = 10 // Default limit
+	baseFilter := bson.M{"user_id": userClaims.ID}
+	dateRange := &utils.DateRange{
+		StartDate: r.URL.Query().Get("start_date"),
+		EndDate:   r.URL.Query().Get("end_date"),
 	}
 
-	// Calculate skip value for pagination
-	skip := (page - 1) * limit
-
-	// Build filter
-	filter := bson.M{"user_id": userClaims.ID}
-
-	// Add search conditions if provided
-	if search != "" {
-		filter["$or"] = []bson.M{
-			{"title": bson.M{"$regex": search, "$options": "i"}},
-			{"description": bson.M{"$regex": search, "$options": "i"}},
-		}
-	}
-
-	// Add priority filter if provided
-	if priority != "" {
-		filter["priority"] = priority
-	}
-
-	// Add status filter if provided
-	if status != "" {
-		filter["status"] = status
-	}
+	filter := utils.BuildSearchFilter(baseFilter, params, dateRange)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Get total count for pagination
-	totalCount, err := taskCollection.CountDocuments(ctx, filter)
+	results, total, err := utils.ExecutePaginatedQuery(ctx, taskCollection, filter, params)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Error counting tasks"})
+		utils.SendError(w, "Failed to fetch tasks", http.StatusInternalServerError)
 		return
 	}
 
-	// Configure find options for pagination and sorting
-	opts := options.Find().
-		SetSort(bson.M{"created_at": -1}). // Sort by creation date, newest first
-		SetSkip(skip).
-		SetLimit(limit)
-
-	// Execute query
-	cursor, err := taskCollection.Find(ctx, filter, opts)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Error fetching tasks"})
-		return
+	tasks := make([]models.Task, 0, len(results))
+	for _, result := range results {
+		var task models.Task
+		bsonBytes, err := bson.Marshal(result)
+		if err != nil {
+			utils.SendError(w, "Failed to process tasks", http.StatusInternalServerError)
+			return
+		}
+		if err := bson.Unmarshal(bsonBytes, &task); err != nil {
+			utils.SendError(w, "Failed to process tasks", http.StatusInternalServerError)
+			return
+		}
+		tasks = append(tasks, task)
 	}
 
-	// Decode results
-	var tasks []models.Task
-	if err = cursor.All(ctx, &tasks); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Error decoding tasks"})
-		return
-	}
-
-	// Calculate total pages
-	totalPages := int64(math.Ceil(float64(totalCount) / float64(limit)))
-
-	// Prepare response
 	response := map[string]interface{}{
 		"tasks":       tasks,
-		"total":       totalCount,
-		"page":        page,
-		"limit":       limit,
-		"total_pages": totalPages,
+		"total":       total,
+		"page":        params.Page,
+		"limit":       params.Limit,
+		"total_pages": utils.CalculateTotalPages(total, params.Limit),
 	}
-
-	json.NewEncoder(w).Encode(response)
+	utils.SendJSON(w, response)
 }
 
 func GetTask(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// GET task ID from URL parameters
-	params := mux.Vars(r)
-	taskID, err := primitive.ObjectIDFromHex(params["id"])
+	taskID, err := utils.GetObjectIDFromRequest(r, "id")
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid task ID"})
+		utils.SendError(w, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
 
-	// Get user claims from context
 	userClaims := r.Context().Value("user").(*middleware.UserClaims)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Find task by ID and user ID to ensure users can only access their own tasks
-	var task models.Task
-	err = taskCollection.FindOne(ctx, bson.M{
-		"_id":     taskID,
-		"user_id": userClaims.ID,
-	}).Decode(&task)
-
+	task, err := getTaskByID(ctx, taskID, userClaims.ID)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]string{"error": "Task not found or unauthorized"})
+			utils.SendError(w, "Task not found or unauthorized", http.StatusNotFound)
 			return
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		utils.SendError(w, "Failed to fetch task", http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(task)
+
+	utils.SendJSON(w, task)
 }
-func UpdateTask(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 
-	// Get task ID from URL parameters
-	params := mux.Vars(r)
-	taskID, err := primitive.ObjectIDFromHex(params["id"])
+func UpdateTask(w http.ResponseWriter, r *http.Request) {
+	taskID, err := utils.GetObjectIDFromRequest(r, "id")
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid task ID"})
+		utils.SendError(w, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
 
-	// Get user claims from context
 	userClaims := r.Context().Value("user").(*middleware.UserClaims)
-
-	// Check if the task exists and belongs to the user
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var existingTask models.Task
-	err = taskCollection.FindOne(ctx, bson.M{
-		"_id":     taskID,
-		"user_id": userClaims.ID,
-	}).Decode(&existingTask)
-
+	// Verify task exists and belongs to user
+	_, err = getTaskByID(ctx, taskID, userClaims.ID)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]string{"error": "Task not found or unauthorized"})
+			utils.SendError(w, "Task not found or unauthorized", http.StatusNotFound)
 			return
 		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		utils.SendError(w, "Failed to verify task", http.StatusInternalServerError)
 		return
 	}
 
-	// Decode the request body
 	var task models.Task
-	err = json.NewDecoder(r.Body).Decode(&task)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+	if err = json.NewDecoder(r.Body).Decode(&task); err != nil {
+		utils.SendError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Override the user_id with the one from JWT token
-	task.UserID = userClaims.ID
-
-	// Validate the task
-	if validationErr := task.Validate(); validationErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": validationErr.Error()})
+	if err = validateAndPrepareTask(&task, userClaims.ID); err != nil {
+		utils.SendError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Prepare update data
 	update := bson.M{
 		"$set": bson.M{
 			"title":       task.Title,
@@ -261,73 +173,144 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 			"due_date":    task.DueDate,
 			"priority":    task.Priority,
 			"status":      task.Status,
-			"updated_at":  time.Now(),
+			"updated_at":  task.UpdatedAt,
 		},
 	}
 
-	// Update the task
 	result, err := taskCollection.UpdateOne(ctx, bson.M{
 		"_id":     taskID,
 		"user_id": userClaims.ID,
 	}, update)
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		utils.SendError(w, "Failed to update task", http.StatusInternalServerError)
 		return
 	}
 
 	if result.ModifiedCount == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Task not found or unauthorized"})
+		utils.SendError(w, "Task not found or unauthorized", http.StatusNotFound)
 		return
 	}
 
-	// Return the updated task
-	var updatedTask models.Task
-	err = taskCollection.FindOne(ctx, bson.M{"_id": taskID}).Decode(&updatedTask)
+	updatedTask, err := getTaskByID(ctx, taskID, userClaims.ID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Error retrieving updated task"})
+		utils.SendError(w, "Failed to fetch updated task", http.StatusInternalServerError)
 		return
 	}
 
-	json.NewEncoder(w).Encode(updatedTask)
+	utils.SendJSON(w, updatedTask)
 }
 
 func DeleteTask(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	params := mux.Vars(r)
-	taskID, err := primitive.ObjectIDFromHex(params["id"])
+	taskID, err := utils.GetObjectIDFromRequest(r, "id")
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid task ID"})
+		utils.SendError(w, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
 
 	userClaims := r.Context().Value("user").(*middleware.UserClaims)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Ensure user can only delete their own tasks
-	filter := bson.M{"_id": taskID, "user_id": userClaims.ID}
+	result, err := taskCollection.DeleteOne(ctx, bson.M{
+		"_id":     taskID,
+		"user_id": userClaims.ID,
+	})
 
-	result, err := taskCollection.DeleteOne(ctx, filter)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		utils.SendError(w, "Failed to delete task", http.StatusInternalServerError)
 		return
 	}
 
 	if result.DeletedCount == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Task not found or unauthorized"})
+		utils.SendError(w, "Task not found or unauthorized", http.StatusNotFound)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func GetTasksByCategory(w http.ResponseWriter, r *http.Request) {
+	categoryID, err := utils.GetObjectIDFromRequest(r, "categoryId")
+	if err != nil {
+		utils.SendError(w, "Invalid category ID", http.StatusBadRequest)
+		return
+	}
 
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Verify category ownership
+	var category models.Category
+	err = utils.VerifyOwnership(ctx, categoryCollection, categoryID, userClaims.ID, &category)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			utils.SendError(w, "Category not found or unauthorized", http.StatusNotFound)
+		} else {
+			utils.SendError(w, "Failed to verify category", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	params := utils.GetPaginationFromRequest(r)
+	baseFilter := bson.M{
+		"user_id":    userClaims.ID,
+		"categories": categoryID,
+	}
+
+	dateRange := &utils.DateRange{
+		StartDate: r.URL.Query().Get("start_date"),
+		EndDate:   r.URL.Query().Get("end_date"),
+	}
+
+	filter := utils.BuildSearchFilter(baseFilter, params, dateRange)
+	results, total, err := utils.ExecutePaginatedQuery(ctx, taskCollection, filter, params)
+	if err != nil {
+		utils.SendError(w, "Failed to fetch tasks", http.StatusInternalServerError)
+		return
+	}
+
+	tasks := make([]models.Task, len(results))
+	for i, result := range results {
+		tasks[i] = result.(models.Task)
+	}
+
+	response := map[string]interface{}{
+		"tasks":       tasks,
+		"page":        params.Page,
+		"limit":       params.Limit,
+		"total":       total,
+		"total_pages": utils.CalculateTotalPages(total, params.Limit),
+		"category":    category.Name,
+		"category_id": category.ID,
+		"color":       category.Color,
+		"statistics":  calculateTaskStats(tasks),
+	}
+
+	utils.SendJSON(w, response)
+}
+
+func calculateTaskStats(tasks []models.Task) map[string]int64 {
+	stats := map[string]int64{
+		"total":     int64(len(tasks)),
+		"completed": 0,
+		"pending":   0,
+		"overdue":   0,
+	}
+
+	now := time.Now()
+	for _, task := range tasks {
+		switch task.Status {
+		case "Completed":
+			stats["completed"]++
+		case "Pending":
+			stats["pending"]++
+			if task.DueDate.Before(now) {
+				stats["overdue"]++
+			}
+		}
+	}
+
+	return stats
+}

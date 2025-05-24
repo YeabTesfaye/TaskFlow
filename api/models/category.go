@@ -21,5 +21,10 @@ func (c *Category) Validate() error {
 	if len(c.Name) < 2 || len(c.Name) > 30 {
 		return errors.New("category name must be between 2 and 30 characters")
 	}
+	// Validate color format
+	c.Color = strings.TrimSpace(c.Color)
+	if !strings.HasPrefix(c.Color, "#") || len(c.Color) != 7 {
+		return errors.New("color must be a valid hex color code (e.g., #FF0000)")
+	}
 	return nil
 }

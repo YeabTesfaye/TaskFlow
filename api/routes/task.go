@@ -42,5 +42,11 @@ func RegisterTaskRoutes(r *mux.Router) {
 		controllers.CreateCategory)).Methods("POST")
 	r.HandleFunc("/api/categories", middleware.AuthMiddleware(
 		controllers.GetCategories)).Methods("GET")
+	r.HandleFunc("/api/categories/{id}", middleware.AuthMiddleware(
+		controllers.UpdateCategory)).Methods("PUT")
+	r.HandleFunc("/api/categories/{id}", middleware.AuthMiddleware(
+		controllers.DeleteCategory)).Methods("DELETE")
+	r.HandleFunc("/api/tasks/category/{categoryId}", middleware.AuthMiddleware(
+		controllers.GetTasksByCategory)).Methods("GET")
 
 }
