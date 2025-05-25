@@ -2,9 +2,12 @@ package main
 
 import (
 	"api/configs"
+	"api/controllers"
 	"api/jobs"
 	"api/middleware"
+	"api/repositories"
 	"api/routes"
+	"api/services"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +17,12 @@ import (
 )
 
 func main() {
+	userRepo := repositories.NewUserRepository(configs.GetCollection(configs.DB, "users"))
+	userService := services.NewUserService(userRepo)
+	userController := controllers.NewUserController(userService)
+
+	profileService := services.NewProfileService(userRepo) // Add this
+	profileController := controllers.NewProfileController(profileService)
 	// Connect to MongoDB
 	configs.ConnectDB()
 
@@ -30,7 +39,7 @@ func main() {
 	r.Use(middleware.SanitizeInput)
 
 	// Register routes explicitly
-	routes.RegisterUserRoutes(r)
+	routes.RegisterUserRoutes(r,userController, profileController)
 	routes.RegisterTaskRoutes(r)
 
 	// Start server

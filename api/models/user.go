@@ -14,7 +14,7 @@ type UserPreferences struct {
 	Timezone           string `json:"timezone" bson:"timezone"`
 	EmailNotifications bool   `json:"email_notifications" bson:"email_notifications"`
 	PushNotifications  bool   `json:"push_notifications" bson:"push_notifications"`
-	DailyDigest        bool   `json:"daily_digest" bson:"daily_digest"`
+	DailyDigest       bool   `json:"daily_digest" bson:"daily_digest"`
 }
 type User struct {
 	ID                primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`

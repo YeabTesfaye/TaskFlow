@@ -6,31 +6,32 @@ import (
 
 	"github.com/gorilla/mux"
 )
-
-func RegisterUserRoutes(r *mux.Router) {
+func RegisterUserRoutes(r *mux.Router, userController *controllers.UserController, profileController *controllers.ProfileController) {
 	// Auth routes
-	r.HandleFunc("/api/users", controllers.SignUp).Methods("POST")
-	r.HandleFunc("/api/login", controllers.LoginUser).Methods("POST")
+	r.HandleFunc("/api/signup", userController.SignUp).Methods("POST")
+	r.HandleFunc("/api/login", userController.Login).Methods("POST")
 
 	// User profile routes
-	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.GetMe)).
+	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(userController.GetMe)).
 		Methods("GET")
-	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.UpdateMe)).
+	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(userController.UpdateMe)).
 		Methods("PATCH")
-	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(controllers.DeleteMe)).
+	r.HandleFunc("/api/users/me", middleware.AuthMiddleware(userController.DeleteMe)).
 		Methods("DELETE")
 	r.HandleFunc("/api/users/password", middleware.AuthMiddleware(
-		controllers.ChangePassword)).Methods("POST")
+		userController.ChangePassword)).Methods("POST")
 
 	// Profile picture routes
 	r.HandleFunc("/api/users/profile-picture", middleware.
-		AuthMiddleware(controllers.UpdateProfilePicture)).Methods("POST")
+		AuthMiddleware(profileController.UpdateProfilePicture)).Methods("POST")
+
 	// User preferences routes
 	r.HandleFunc("/api/users/preferences", middleware.
-		AuthMiddleware(controllers.UpdatePreferences)).Methods("PUT")
+		AuthMiddleware(profileController.UpdatePreferences)).Methods("PUT")
+
 	// Email verification routes
 	r.HandleFunc("/api/users/send-verification", middleware.
-		AuthMiddleware(controllers.SendVerificationEmail)).Methods("POST")
-	r.HandleFunc("/api/users/verify-email", controllers.VerifyEmail).
+		AuthMiddleware(userController.SendVerificationEmail)).Methods("POST")
+	r.HandleFunc("/api/users/verify-email", userController.VerifyEmail).
 		Methods("GET")
 }

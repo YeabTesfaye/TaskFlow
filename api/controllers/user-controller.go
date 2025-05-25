@@ -1,325 +1,181 @@
 package controllers
 
 import (
-	"api/configs"
 	"api/middleware"
 	"api/models"
+	"api/services"
 	"api/utils"
-	"api/validation"
-	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
-	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/crypto/bcrypt"
 )
 
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+type UserController struct {
+	service *services.UserService
 }
 
-type LoginResponse struct {
-	Token string      `json:"token"`
-	User  models.User `json:"user"`
-}
-type UpdateNameRequest struct {
-	Name string `json:"name"`
-}
-type PasswordChangeRequest struct {
-	CurrentPassword string `json:"current_password"`
-	NewPassword     string `json:"new_password"`
+func NewUserController(service *services.UserService) *UserController {
+	return &UserController{service: service}
 }
 
-var userCollection = configs.GetCollection(configs.DB, "users")
-
-func SignUp(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
+func (c *UserController) SignUp(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		utils.SendError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Validate user creation request
-	if err := utils.ValidateUserCreation(&user); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-
-	// Hash the password
-	hashedPassword, err := utils.HashPassword(user.Password)
+	userID, err := c.service.CreateUser(r.Context(), &user)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Error hashing password"})
+		utils.SendError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	user.Password = hashedPassword
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	result, err := userCollection.InsertOne(ctx, user)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-
-	// Remove password from response
-	user.Password = ""
-	json.NewEncoder(w).Encode(result)
+	utils.SendJSON(w, map[string]interface{}{
+		"id": userID,
+	})
 }
 
-func LoginUser(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	var loginReq LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&loginReq); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+func (c *UserController) Login(w http.ResponseWriter, r *http.Request) {
+	var req models.LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.SendError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	var user models.User
-	err := userCollection.FindOne(ctx, bson.M{"email": loginReq.Email}).Decode(&user)
-
+	user, token, err := c.service.LoginUser(r.Context(), req.Email, req.Password)
 	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid credentials"})
+		utils.SendError(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	// Verify password
-	if !utils.CheckPassword(user.Password, loginReq.Password) {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid credentials"})
-		return
-	}
-
-	// Generate JWT token
-	token, err := middleware.GenerateJWT(user.ID.Hex(), user.Email)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Error generating token"})
-		return
-	}
-
-	// Remove password from response
-	user.Password = ""
-
-	response := LoginResponse{
+	utils.SendJSON(w, models.LoginResponse{
 		Token: token,
-		User:  user,
-	}
-	json.NewEncoder(w).Encode(response)
+		User:  *user,
+	})
 }
 
-func DeleteMe(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// Get user claims from context
+func (c *UserController) UpdateName(w http.ResponseWriter, r *http.Request) {
 	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+	userID, _ := primitive.ObjectIDFromHex(userClaims.ID)
 
-	// Convert string ID to ObjectID
+	var req models.UpdateNameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.SendError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := c.service.UpdateUserName(r.Context(), userID, req.Name); err != nil {
+		utils.SendError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	utils.SendJSON(w, map[string]string{"message": "Name updated successfully"})
+}
+
+func (c *UserController) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+	userID, _ := primitive.ObjectIDFromHex(userClaims.ID)
+
+	var req models.PasswordChangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.SendError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := c.service.ChangePassword(r.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
+		utils.SendError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	utils.SendJSON(w, map[string]string{"message": "Password changed successfully"})
+}
+
+
+func (c *UserController) GetMe(w http.ResponseWriter, r *http.Request) {
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
 	userID, err := primitive.ObjectIDFromHex(userClaims.ID)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid user ID format"})
+		utils.SendError(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// First, delete all tasks associated with the user
-	_, err = taskCollection.DeleteMany(ctx, bson.M{"user_id": userClaims.ID})
+	user, err := c.service.GetUserByID(r.Context(), userID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete user's tasks"})
+		utils.SendError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Then delete the user
-	result, err := userCollection.DeleteOne(ctx, bson.M{"_id": userID})
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to delete user account"})
-		return
-	}
-
-	if result.DeletedCount == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"error": "User not found"})
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
+	utils.SendJSON(w, user)
 }
 
-func UpdateMe(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// Get user claims from context
-	userClaim := r.Context().Value("user").(*middleware.UserClaims)
-
-	// Convert string ID to objectID
-	userID, err := primitive.ObjectIDFromHex(userClaim.ID)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid user ID format"})
-		return
-	}
-
-	// Parse request body
-	var req UpdateNameRequest
-	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
-		return
-	}
-	// Validate new name
-	req.Name = strings.TrimSpace(req.Name)
-	if len(req.Name) < 3 || len(req.Name) > 50 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Name must be between 3 and 50 characters"})
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Update only the name field
-	update := bson.M{
-		"$set": bson.M{
-			"name": req.Name,
-		},
-	}
-
-	result, err := userCollection.UpdateOne(ctx, bson.M{"_id": userID}, update)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update user name"})
-		return
-	}
-
-	if result.ModifiedCount == 0 {
-		json.NewEncoder(w).Encode(map[string]string{"message": "Name is already up to date"})
-		return
-	}
-
-	// Return success response
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Name updated successfully"})
-}
-func GetMe(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	// Get user claims from context
+func (c *UserController) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	userClaims := r.Context().Value("user").(*middleware.UserClaims)
-
-	// Convert string ID to ObjectID
 	userID, err := primitive.ObjectIDFromHex(userClaims.ID)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid user ID format"})
+		utils.SendError(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Find user by ID
-	var user models.User
-	err = userCollection.FindOne(ctx, bson.M{"_id": userID}).Decode(&user)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]string{"error": "User not found"})
-			return
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch user"})
+	var updateData map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&updateData); err != nil {
+		utils.SendError(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Remove sensitive information
-	user.Password = ""
+	if err := c.service.UpdateUser(r.Context(), userID, updateData); err != nil {
+		utils.SendError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	// Return user data
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(user)
+	utils.SendJSON(w, map[string]string{"message": "User updated successfully"})
 }
 
-func ChangePassword(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
+func (c *UserController) DeleteMe(w http.ResponseWriter, r *http.Request) {
 	userClaims := r.Context().Value("user").(*middleware.UserClaims)
-
 	userID, err := primitive.ObjectIDFromHex(userClaims.ID)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid user ID"})
-		return
-	}
-	var req PasswordChangeRequest
-	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		utils.SendError(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	// Get current user
-	var user models.User
-	ctx := context.Background()
-	err = userCollection.FindOne(ctx, bson.M{"_id": userID}).Decode(&user)
+	if err := c.service.DeleteUser(r.Context(), userID); err != nil {
+		utils.SendError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	utils.SendJSON(w, map[string]string{"message": "User deleted successfully"})
+}
+
+
+func (c *UserController) SendVerificationEmail(w http.ResponseWriter, r *http.Request) {
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+	userID, err := primitive.ObjectIDFromHex(userClaims.ID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch user"})
+		utils.SendError(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	// Verify current password
-	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)); compareErr != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Current password is incorrect"})
+	if err := c.service.SendVerificationEmail(r.Context(), userID); err != nil {
+		utils.SendError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Validate new password
-	if err = validation.ValidatePassword(req.NewPassword); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	utils.SendJSON(w, map[string]string{"message": "Verification email sent successfully"})
+}
+
+func (c *UserController) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		utils.SendError(w, "Verification token is required", http.StatusBadRequest)
 		return
 	}
 
-	// Hash new password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to hash password"})
+	if err := c.service.VerifyEmail(r.Context(), token); err != nil {
+		utils.SendError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Update password
-	update := bson.M{"$set": bson.M{"password": string(hashedPassword)}}
-	_, err = userCollection.UpdateOne(ctx, bson.M{"_id": userID}, update)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update password"})
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Password updated successfully"})
+	utils.SendJSON(w, map[string]string{"message": "Email verified successfully"})
 }
