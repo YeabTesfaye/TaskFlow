@@ -14,33 +14,45 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 func main() {
+	// Initialize repositories, services, controllers
 	userRepo := repositories.NewUserRepository(configs.GetCollection(configs.DB, "users"))
 	userService := services.NewUserService(userRepo)
 	userController := controllers.NewUserController(userService)
 
-	profileService := services.NewProfileService(userRepo) // Add this
+	profileService := services.NewProfileService(userRepo)
 	profileController := controllers.NewProfileController(profileService)
+
 	// Connect to MongoDB
 	configs.ConnectDB()
 
-	// Start the reminder job
+	// Start background jobs
 	jobs.StartReminderJob()
 
 	// Create router
 	r := mux.NewRouter()
 
-	// Add rate limiting middleware
+	// Add middlewares
 	r.Use(middleware.RateLimit)
-
-	// Add input sanitize middleware
 	r.Use(middleware.SanitizeInput)
 
-	// Register routes explicitly
-	routes.RegisterUserRoutes(r,userController, profileController)
+	// Register your routes
+	routes.RegisterUserRoutes(r, userController, profileController)
 	routes.RegisterTaskRoutes(r)
+
+	// Setup CORS
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"}, // Allow frontend origin
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+	})
+
+	// Wrap router with CORS
+	handler := corsHandler.Handler(r)
 
 	// Start server
 	port := os.Getenv("PORT")
@@ -49,5 +61,5 @@ func main() {
 	}
 
 	fmt.Printf("Server is running on port %s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, r))
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }

@@ -51,16 +51,7 @@ func (u *User) Validate() error {
 		return err
 	}
 
-	// Validate preferences
-	// u.Preferences.Timezone = strings.TrimSpace(u.Preferences.Timezone)
-	// if u.Preferences.Timezone == "" {
-	// 	return errors.New("timezone is required in preferences")
-	// }
 
-	// Optionally, validate if timezone is a valid IANA string
-	// if !validation.IsValidTimezone(u.Preferences.Timezone) {
-	// 	return errors.New("invalid timezone format")
-	// }
 
 	return nil
 }
