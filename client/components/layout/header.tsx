@@ -3,7 +3,7 @@
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, User, Settings, LogOut } from "lucide-react";
+import { Search, User, Settings, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -24,7 +24,6 @@ export function Header() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check for token in localStorage
     const token = localStorage.getItem("token");
     setIsAuthenticated(!!token);
   }, []);
@@ -44,90 +43,84 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-<div className="container mx-auto px-4 py-8 md:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
-          <motion.div 
-            className="flex items-center"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <span className="bg-gradient-to-r from-primary to-indigo-500 bg-clip-text text-xl font-bold text-transparent">
-              TaskFlow
-            </span>
-          </motion.div>
-        </Link>
-        
-        <div className="flex flex-1 items-center justify-end gap-2 md:justify-center">
+      <div className="container mx-auto px-4 md:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between gap-4">
+          {/* Logo */}
+          <div className="flex-shrink-0">
+            <Link href="/" className="flex items-center gap-2">
+              <motion.div
+                className="flex items-center"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <span className="bg-gradient-to-r from-primary to-indigo-500 bg-clip-text text-xl font-bold text-transparent">
+                  TaskFlow
+                </span>
+              </motion.div>
+            </Link>
+          </div>
+
+          {/* Search Bar - Only show when authenticated */}
           {isAuthenticated && (
-            <form 
-              onSubmit={handleSearch}
-              className={cn(
-                "relative mx-4 transition-all duration-300 ease-in-out",
-                searchFocused ? "w-full md:w-80 lg:w-96" : "w-40 md:w-60"
-              )}
-            >
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search tasks..."
-                className="w-full bg-background pl-9 pr-4"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-              />
-            </form>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {isAuthenticated ? (
-            <>
-              <Button asChild size="sm" className="gap-1">
-                <Link href="/new">
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">New Task</span>
-                </Link>
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <User className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href="/user/profile" className="flex items-center">
-                      <User className="mr-2 h-4 w-4" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/user/settings" className="flex items-center">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="flex items-center text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/signup">Sign Up</Link>
-              </Button>
+            <div className="flex-1 max-w-2xl">
+              <form onSubmit={handleSearch}>
+                <div
+                  className={cn(
+                    "relative transition-all duration-300 ease-in-out",
+                    searchFocused ? "w-full" : "w-[200px] md:w-[300px] lg:w-[400px]"
+                  )}
+                >
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search tasks..."
+                    className="w-full pl-9 pr-4"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
+                  />
+                </div>
+              </form>
             </div>
           )}
-          <ThemeToggle />
+
+          {/* Right Side Actions */}
+          <div className="flex items-center space-x-2">
+            {isAuthenticated ? (
+              <>
+                <ThemeToggle />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href="/user/profile">Profile</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/user/settings">Settings</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <ThemeToggle />
+                <Button variant="default" size="sm" asChild>
+                  <Link href="/login">Login</Link>
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>

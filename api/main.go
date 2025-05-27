@@ -35,6 +35,8 @@ func main() {
 	// Create router
 	r := mux.NewRouter()
 
+    // Add static file server for uploads
+    r.PathPrefix("/api/uploads/").Handler(http.StripPrefix("/api/uploads/", http.FileServer(http.Dir("uploads"))))
 	// Add middlewares
 	r.Use(middleware.RateLimit)
 	r.Use(middleware.SanitizeInput)

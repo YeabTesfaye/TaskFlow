@@ -6,6 +6,7 @@ import (
 	"api/services"
 	"api/utils"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -28,14 +29,15 @@ func (c *ProfileController) UpdateProfilePicture(w http.ResponseWriter, r *http.
 	}
 
 	// Parse multipart form
-	if err = r.ParseMultipartForm(10 << 20); err != nil {
-		utils.SendError(w, "File too large", http.StatusBadRequest)
-		return
-	}
+	// if err = r.ParseMultipartForm(10 << 20); err != nil {
+	// 	utils.SendError(w, "File too large", http.StatusBadRequest)
+	// 	return
+	// }
 
 	file, header, err := r.FormFile("profile_picture")
+	fmt.Print(err)
 	if err != nil {
-		utils.SendError(w, "Invalid file", http.StatusBadRequest)
+		utils.SendError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer file.Close()

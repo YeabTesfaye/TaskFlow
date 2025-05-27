@@ -14,19 +14,28 @@ type UserPreferences struct {
 	Timezone           string `json:"timezone" bson:"timezone"`
 	EmailNotifications bool   `json:"email_notifications" bson:"email_notifications"`
 	PushNotifications  bool   `json:"push_notifications" bson:"push_notifications"`
-	DailyDigest       bool   `json:"daily_digest" bson:"daily_digest"`
+	DailyDigest        bool   `json:"daily_digest" bson:"daily_digest"`
 }
 type User struct {
 	ID                primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
 	Name              string             `json:"name,omitempty" bson:"name,omitempty"`
 	Email             string             `json:"email,omitempty" bson:"email,omitempty"`
 	Password          string             `json:"password,omitempty" bson:"password,omitempty"`
-	ProfilePicture    string             `json:"profile_picture,omitempty" bson:"profile_picture,omitempty"`
+    ProfilePicture    *ProfilePicture    `json:"profile_picture,omitempty" bson:"profile_picture,omitempty"`
 	Preferences       UserPreferences    `json:"preferences" bson:"preferences"`
 	EmailVerified     bool               `json:"email_verified" bson:"email_verified"`
 	VerificationToken string             `json:"verification_token,omitempty" bson:"verification_token,omitempty"`
 	CreatedAt         time.Time          `json:"created_at" bson:"created_at"`
 	UpdatedAt         time.Time          `json:"updated_at" bson:"updated_at"`
+}
+
+type ProfilePicture struct {
+	FilePath     string    `json:"file_path" bson:"file_path"`
+	URL          string    `json:"url" bson:"url"`
+	UpdatedAt    time.Time `json:"updated_at" bson:"updated_at"`
+	FileName     string    `json:"file_name" bson:"file_name"`
+	OriginalName string    `json:"original_name" bson:"original_name"`
+	ContentType  string    `json:"content_type" bson:"content_type"`
 }
 
 func (u *User) Validate() error {
@@ -50,8 +59,5 @@ func (u *User) Validate() error {
 	if err := validation.ValidatePassword(u.Password); err != nil {
 		return err
 	}
-
-
-
 	return nil
 }

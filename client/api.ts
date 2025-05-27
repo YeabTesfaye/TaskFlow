@@ -50,6 +50,17 @@ export const user = {
     deleteAccount: async () => {
       const response = await api.delete('/users/me');
       return response.data;
-    }
+    },
+    uploadProfilePicture: async (file: File) => {
+      const formData = new FormData();
+      formData.append('profile_picture', file, file.name,);
+      
+      const response = await api.post('/users/profile-picture', formData, {
+        headers: {
+          'Content-Type': null,
+        },
+      });
+      return response.data;
+    },
   };
 export default api
