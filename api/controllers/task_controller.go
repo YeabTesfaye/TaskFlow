@@ -229,69 +229,7 @@ func DeleteTask(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
-
-func GetTasksByCategory(w http.ResponseWriter, r *http.Request) {
-	categoryID, err := utils.GetObjectIDFromRequest(r, "categoryId")
-	if err != nil {
-		utils.SendError(w, "Invalid category ID", http.StatusBadRequest)
-		return
-	}
-
-	userClaims := r.Context().Value("user").(*middleware.UserClaims)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// Verify category ownership
-	var category models.Category
-	err = utils.VerifyOwnership(ctx, categoryCollection, categoryID, userClaims.ID, &category)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			utils.SendError(w, "Category not found or unauthorized", http.StatusNotFound)
-		} else {
-			utils.SendError(w, "Failed to verify category", http.StatusInternalServerError)
-		}
-		return
-	}
-
-	params := utils.GetPaginationFromRequest(r)
-	baseFilter := bson.M{
-		"user_id":    userClaims.ID,
-		"categories": categoryID,
-	}
-
-	dateRange := &utils.DateRange{
-		StartDate: r.URL.Query().Get("start_date"),
-		EndDate:   r.URL.Query().Get("end_date"),
-	}
-
-	filter := utils.BuildSearchFilter(baseFilter, params, dateRange)
-	results, total, err := utils.ExecutePaginatedQuery(ctx, taskCollection, filter, params)
-	if err != nil {
-		utils.SendError(w, "Failed to fetch tasks", http.StatusInternalServerError)
-		return
-	}
-
-	tasks := make([]models.Task, len(results))
-	for i, result := range results {
-		tasks[i] = result.(models.Task)
-	}
-
-	response := map[string]interface{}{
-		"tasks":       tasks,
-		"page":        params.Page,
-		"limit":       params.Limit,
-		"total":       total,
-		"total_pages": utils.CalculateTotalPages(total, params.Limit),
-		"category":    category.Name,
-		"category_id": category.ID,
-		"color":       category.Color,
-		"statistics":  calculateTaskStats(tasks),
-	}
-
-	utils.SendJSON(w, response)
-}
-
-func calculateTaskStats(tasks []models.Task) map[string]int64 {
+func CalculateTaskStats(tasks []models.Task) map[string]int64 {
 	stats := map[string]int64{
 		"total":     int64(len(tasks)),
 		"completed": 0,
@@ -313,4 +251,65 @@ func calculateTaskStats(tasks []models.Task) map[string]int64 {
 	}
 
 	return stats
+}
+
+func UpdateTaskStatus(w http.ResponseWriter, r *http.Request) {
+	taskID, err := utils.GetObjectIDFromRequest(r, "id")
+	if err != nil {
+		utils.SendError(w, "Invalid task ID", http.StatusBadRequest)
+		return
+	}
+
+	userClaims := r.Context().Value("user").(*middleware.UserClaims)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Verify task exists and belongs to user
+	_, err = getTaskByID(ctx, taskID, userClaims.ID)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			utils.SendError(w, "Task not found or unauthorized", http.StatusNotFound)
+			return
+		}
+		utils.SendError(w, "Failed to verify task", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse request body
+	var body struct {
+		Status string `json:"status"`
+	}
+	if err = json.NewDecoder(r.Body).Decode(&body); err != nil {
+		utils.SendError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Update status
+	update := bson.M{
+		"$set": bson.M{
+			"status":     body.Status,
+			"updated_at": time.Now(),
+		},
+	}
+	result, err := taskCollection.UpdateOne(ctx, bson.M{
+		"_id":     taskID,
+		"user_id": userClaims.ID,
+	}, update)
+
+	if err != nil {
+		utils.SendError(w, "Failed to update status", http.StatusInternalServerError)
+		return
+	}
+	if result.ModifiedCount == 0 {
+		utils.SendError(w, "No update made", http.StatusNotModified)
+		return
+	}
+
+	// Return updated task
+	updatedTask, err := getTaskByID(ctx, taskID, userClaims.ID)
+	if err != nil {
+		utils.SendError(w, "Failed to fetch updated task", http.StatusInternalServerError)
+		return
+	}
+	utils.SendJSON(w, updatedTask)
 }

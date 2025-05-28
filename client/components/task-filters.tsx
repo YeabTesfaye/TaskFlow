@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -8,39 +8,37 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { TaskStatus, Priority } from "@/types/task";
-import { useTaskStore } from "@/lib/data";
-import { useState } from "react";
-import { Filter, SortAsc, SortDesc, CalendarDays } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { motion } from "framer-motion";
+} from '@/components/ui/dropdown-menu';
+import { Priority, PRIORITY_VALUES, Status, STATUS_VALUES } from '@/types/task';
+import { useState } from 'react';
+import { Filter, SortAsc, SortDesc, CalendarDays } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface TaskFiltersProps {
   onFilterChange: (filters: FilterState) => void;
+  tags: { id: string; name: string; color: string }[];
 }
 
 export interface FilterState {
-  statuses: TaskStatus[];
+  statuses: Status[];
   priorities: Priority[];
   tagIds: string[];
-  sortBy: "dueDate" | "priority" | "createdAt";
-  sortDirection: "asc" | "desc";
-  view: "grid" | "list";
+  sortBy: 'dueDate' | 'priority' | 'createdAt';
+  sortDirection: 'asc' | 'desc';
+  view: 'grid' | 'list';
 }
 
 const initialFilters: FilterState = {
-  statuses: ["pending", "in-progress", "completed"],
-  priorities: ["low", "medium", "high", "urgent"],
+  statuses: ['Pending', 'In Progress', 'Completed'],
+  priorities: ['Low', 'Medium', 'High', 'Urgent'],
   tagIds: [],
-  sortBy: "createdAt",
-  sortDirection: "desc",
-  view: "grid",
+  sortBy: 'createdAt',
+  sortDirection: 'desc',
+  view: 'grid',
 };
 
-export function TaskFilters({ onFilterChange }: TaskFiltersProps) {
+export function TaskFilters({ onFilterChange, tags }: TaskFiltersProps) {
   const [filters, setFilters] = useState<FilterState>(initialFilters);
-  const { tags } = useTaskStore();
 
   const updateFilters = (newFilters: Partial<FilterState>) => {
     const updatedFilters = { ...filters, ...newFilters };
@@ -48,7 +46,7 @@ export function TaskFilters({ onFilterChange }: TaskFiltersProps) {
     onFilterChange(updatedFilters);
   };
 
-  const toggleStatus = (status: TaskStatus) => {
+  const toggleStatus = (status: Status) => {
     const statuses = filters.statuses.includes(status)
       ? filters.statuses.filter((s) => s !== status)
       : [...filters.statuses, status];
@@ -70,15 +68,15 @@ export function TaskFilters({ onFilterChange }: TaskFiltersProps) {
   };
 
   const sortOptions = [
-    { value: "createdAt", label: "Creation Date" },
-    { value: "dueDate", label: "Due Date" },
-    { value: "priority", label: "Priority" },
+    { value: 'createdAt', label: 'Creation Date' },
+    { value: 'dueDate', label: 'Due Date' },
+    { value: 'priority', label: 'Priority' },
   ] as const;
 
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap gap-2">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -94,28 +92,28 @@ export function TaskFilters({ onFilterChange }: TaskFiltersProps) {
               <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem
-                checked={filters.statuses.includes("pending")}
-                onCheckedChange={() => toggleStatus("pending")}
+                checked={filters.statuses.includes(STATUS_VALUES[0])}
+                onCheckedChange={() => toggleStatus(STATUS_VALUES[0])}
               >
                 Pending
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
-                checked={filters.statuses.includes("in-progress")}
-                onCheckedChange={() => toggleStatus("in-progress")}
+                checked={filters.statuses.includes(STATUS_VALUES[1])}
+                onCheckedChange={() => toggleStatus(STATUS_VALUES[1])}
               >
                 In Progress
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
-                checked={filters.statuses.includes("completed")}
-                onCheckedChange={() => toggleStatus("completed")}
+                checked={filters.statuses.includes(STATUS_VALUES[2])}
+                onCheckedChange={() => toggleStatus(STATUS_VALUES[2])}
               >
                 Completed
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
@@ -131,34 +129,34 @@ export function TaskFilters({ onFilterChange }: TaskFiltersProps) {
               <DropdownMenuLabel>Filter by Priority</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem
-                checked={filters.priorities.includes("low")}
-                onCheckedChange={() => togglePriority("low")}
+                checked={filters.priorities.includes(PRIORITY_VALUES[0])}
+                onCheckedChange={() => togglePriority(PRIORITY_VALUES[0])}
               >
                 Low
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
-                checked={filters.priorities.includes("medium")}
-                onCheckedChange={() => togglePriority("medium")}
+                checked={filters.priorities.includes(PRIORITY_VALUES[1])}
+                onCheckedChange={() => togglePriority(PRIORITY_VALUES[1])}
               >
                 Medium
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
-                checked={filters.priorities.includes("high")}
-                onCheckedChange={() => togglePriority("high")}
+                checked={filters.priorities.includes(PRIORITY_VALUES[2])}
+                onCheckedChange={() => togglePriority(PRIORITY_VALUES[2])}
               >
                 High
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
-                checked={filters.priorities.includes("urgent")}
-                onCheckedChange={() => togglePriority("urgent")}
+                checked={filters.priorities.includes(PRIORITY_VALUES[3])}
+                onCheckedChange={() => togglePriority(PRIORITY_VALUES[3])}
               >
                 Urgent
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
@@ -198,9 +196,9 @@ export function TaskFilters({ onFilterChange }: TaskFiltersProps) {
           </DropdownMenu>
         </motion.div>
       </div>
-      
+
       <div className="flex items-center gap-2">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.3 }}
@@ -208,7 +206,7 @@ export function TaskFilters({ onFilterChange }: TaskFiltersProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1">
-                {filters.sortDirection === "asc" ? (
+                {filters.sortDirection === 'asc' ? (
                   <SortAsc className="h-4 w-4" />
                 ) : (
                   <SortDesc className="h-4 w-4" />
@@ -232,10 +230,11 @@ export function TaskFilters({ onFilterChange }: TaskFiltersProps) {
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem
-                checked={filters.sortDirection === "asc"}
+                checked={filters.sortDirection === 'asc'}
                 onCheckedChange={() =>
                   updateFilters({
-                    sortDirection: filters.sortDirection === "asc" ? "desc" : "asc",
+                    sortDirection:
+                      filters.sortDirection === 'asc' ? 'desc' : 'asc',
                   })
                 }
               >

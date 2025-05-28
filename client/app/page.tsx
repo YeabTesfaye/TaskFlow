@@ -1,82 +1,86 @@
-"use client";
+'use client';
 
-import { useTaskStore } from "@/lib/data";
-import { TaskGrid } from "@/components/task-grid";
-import { Header } from "@/components/layout/header";
-import { TaskFilters, FilterState } from "@/components/task-filters";
-import { useState, useEffect } from "react";
-import { Task } from "@/types/task";
-import { useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
-import Link from "next/link";
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { PlusCircle } from 'lucide-react';
+
+import { Header } from '@/components/layout/header';
+import { TaskGrid } from '@/components/task-grid';
+import { TaskFilters, FilterState } from '@/components/task-filters';
+import { Button } from '@/components/ui/button';
+import { Task } from '@/types/task';
+import { getTasks } from '@/lib/actions/task.action';
+import { initialTags } from '@/lib/data';
 
 export default function Home() {
-  const { tasks, tags } = useTaskStore();
   const searchParams = useSearchParams();
-  const searchQuery = searchParams?.get("search") || "";
+  const searchQuery = searchParams?.get('search') || '';
 
-  const [filteredTasks, setFilteredTasks] = useState<Task[]>(tasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [filters, setFilters] = useState<FilterState>({
-    statuses: ["pending", "in-progress", "completed"],
-    priorities: ["low", "medium", "high", "urgent"],
+    statuses: ['Pending', 'In Progress', 'Completed'],
+    priorities: ['Low', 'Medium', 'High', 'Urgent'],
     tagIds: [],
-    sortBy: "createdAt",
-    sortDirection: "desc",
-    view: "grid",
+    sortBy: 'createdAt',
+    sortDirection: 'desc',
+    view: 'grid',
   });
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      const fetchedTasks = await getTasks();
+      setTasks(fetchedTasks);
+    };
+    fetchTasks();
+  }, []);
 
   useEffect(() => {
     let filtered = [...tasks];
 
-    // Apply search filter if present
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (task) =>
-          task.title.toLowerCase().includes(query) ||
-          task.description.toLowerCase().includes(query)
+          task.title.toLowerCase().includes(q) ||
+          task.description.toLowerCase().includes(q),
       );
     }
 
-    // Apply status filter
     filtered = filtered.filter((task) =>
-      filters.statuses.includes(task.status)
+      filters.statuses.includes(task.status),
     );
 
-    // Apply priority filter
     filtered = filtered.filter((task) =>
-      filters.priorities.includes(task.priority)
+      filters.priorities.includes(task.priority),
     );
 
-    // Apply tag filter if any tags are selected
     if (filters.tagIds.length > 0) {
       filtered = filtered.filter((task) =>
-        task.tags.some((tagId) => filters.tagIds.includes(tagId))
+        task.tags.some((tagId) => filters.tagIds.includes(tagId)),
       );
     }
 
-    // Apply sorting
     filtered.sort((a, b) => {
-      if (filters.sortBy === "dueDate") {
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return filters.sortDirection === "asc"
-          ? new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-          : new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
+      if (filters.sortBy === 'dueDate') {
+        const aDate = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+        const bDate = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+        return filters.sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
       }
-      
-      if (filters.sortBy === "priority") {
-        const priorityOrder = { low: 0, medium: 1, high: 2, urgent: 3 };
-        return filters.sortDirection === "asc"
+
+      if (filters.sortBy === 'priority') {
+        const priorityOrder = { Low: 0, Medium: 1, High: 2, Urgent: 3 };
+        return filters.sortDirection === 'asc'
           ? priorityOrder[a.priority] - priorityOrder[b.priority]
           : priorityOrder[b.priority] - priorityOrder[a.priority];
       }
-      
-      // Default sort by createdAt
-      return filters.sortDirection === "asc"
-        ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+
+      const aCreated = new Date(a.createdAt).getTime();
+      const bCreated = new Date(b.createdAt).getTime();
+      return filters.sortDirection === 'asc'
+        ? aCreated - bCreated
+        : bCreated - aCreated;
     });
 
     setFilteredTasks(filtered);
@@ -93,7 +97,7 @@ export default function Home() {
         <div className="container mx-auto px-4 py-8 md:px-6 lg:px-8">
           <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <h1 className="text-3xl font-bold tracking-tight">
-              {searchQuery ? `Search: "${searchQuery}"` : "My Tasks"}
+              {searchQuery ? `Search: "${searchQuery}"` : 'My Tasks'}
             </h1>
             <Button asChild size="sm" className="w-full sm:w-auto">
               <Link href="/new">
@@ -103,13 +107,13 @@ export default function Home() {
             </Button>
           </div>
 
-          <TaskFilters onFilterChange={handleFilterChange} />
-          
+          <TaskFilters tags={initialTags} onFilterChange={handleFilterChange} />
+
           <TaskGrid tasks={filteredTasks} />
-          
+
           {filteredTasks.length === 0 && tasks.length > 0 && (
             <div className="mt-4 text-center text-sm text-muted-foreground">
-              No tasks match your current filters. Try adjusting your search or filter criteria.
+              No tasks match your current filters.
             </div>
           )}
 

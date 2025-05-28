@@ -1,10 +1,11 @@
-"use client";
+'use client';
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Form,
   FormControl,
@@ -13,46 +14,59 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useTaskStore } from "@/lib/data";
-import { Task, Priority, TaskStatus } from "@/types/task";
-import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
-import { Checkbox } from "@/components/ui/checkbox";
-
-const formSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  priority: z.enum(["low", "medium", "high", "urgent"] as const),
-  status: z.enum(["pending", "in-progress", "completed"] as const),
-  dueDate: z.date().nullable(),
-  tags: z.array(z.string()),
-});
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { PRIORITY_VALUES, STATUS_VALUES, Tag, Task } from '@/types/task';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+import { Checkbox } from '@/components/ui/checkbox';
+import { tasks } from '@/api';
+import { formSchema } from '@/lib/validator';
+import { initialTags } from '@/lib/data';
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface TaskFormProps {
   task?: Task;
-  mode: "create" | "edit";
+  mode: 'create' | 'edit';
 }
 
 export function TaskForm({ task, mode }: TaskFormProps) {
-  const { addTask, updateTask, tags } = useTaskStore();
   const { toast } = useToast();
   const router = useRouter();
+  const [tags, setTags] = useState<Tag[]>(initialTags);
+
+  // Fetch tags on mount
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        setTags(initialTags);
+      } catch (error) {
+        toast({
+          title: 'Failed to load tags',
+          description: 'Please try again later.',
+          variant: 'destructive',
+        });
+      }
+    };
+    fetchTags();
+  }, [toast]);
 
   const defaultValues: FormValues = task
     ? {
@@ -61,13 +75,13 @@ export function TaskForm({ task, mode }: TaskFormProps) {
         priority: task.priority,
         status: task.status,
         dueDate: task.dueDate ? new Date(task.dueDate) : null,
-        tags: task.tags,
+        tags: task.tags.map((tag) => tag),
       }
     : {
-        title: "",
-        description: "",
-        priority: "medium",
-        status: "pending",
+        title: '',
+        description: '',
+        priority: 'Medium',
+        status: 'Pending',
         dueDate: null,
         tags: [],
       };
@@ -77,31 +91,41 @@ export function TaskForm({ task, mode }: TaskFormProps) {
     defaultValues,
   });
 
-  function onSubmit(values: FormValues) {
-    if (mode === "create") {
-      addTask({
-        ...values,
-        id: "",
-        createdAt: new Date(),
-      });
+  async function onSubmit(values: FormValues) {
+    try {
+      if (mode === 'create') {
+        await tasks.create({
+          ...values,
+          due_date: values.dueDate,
+        });
+        toast({
+          title: 'Task Created',
+          description: 'Your new task has been created successfully.',
+        });
+      } else if (task) {
+        await tasks.update(task.id, {
+          ...values,
+          due_date: values.dueDate,
+        });
+        toast({
+          title: 'Task Updated',
+          description: 'Your task has been updated successfully.',
+        });
+      }
+      router.push('/');
+    } catch (error: any) {
       toast({
-        title: "Task Created",
-        description: "Your new task has been created successfully.",
-      });
-    } else if (task) {
-      updateTask(task.id, values);
-      toast({
-        title: "Task Updated",
-        description: "Your task has been updated successfully.",
+        title: 'Error',
+        description: error.response?.data?.message || 'Something went wrong',
+        variant: 'destructive',
       });
     }
-
-    router.push("/");
   }
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Title Field */}
         <FormField
           control={form.control}
           name="title"
@@ -115,14 +139,13 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                   autoFocus
                 />
               </FormControl>
-              <FormDescription>
-                Keep it short and descriptive
-              </FormDescription>
+              <FormDescription>Keep it short and descriptive</FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        {/* Description Field */}
         <FormField
           control={form.control}
           name="description"
@@ -134,7 +157,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                   placeholder="Add details about your task..."
                   className="min-h-[120px] resize-none"
                   {...field}
-                  value={field.value || ""}
+                  value={field.value || ''}
                 />
               </FormControl>
               <FormDescription>
@@ -145,6 +168,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
           )}
         />
 
+        {/* Priority & Status */}
         <div className="grid gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
@@ -162,10 +186,11 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    {PRIORITY_VALUES.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -189,9 +214,11 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
+                    {STATUS_VALUES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -200,6 +227,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
           />
         </div>
 
+        {/* Due Date */}
         <FormField
           control={form.control}
           name="dueDate"
@@ -210,14 +238,14 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
-                      variant={"outline"}
+                      variant={'outline'}
                       className={cn(
-                        "w-full pl-3 text-left font-normal",
-                        !field.value && "text-muted-foreground"
+                        'w-full pl-3 text-left font-normal',
+                        !field.value && 'text-muted-foreground',
                       )}
                     >
                       {field.value ? (
-                        format(field.value, "PPP")
+                        format(field.value, 'PPP')
                       ) : (
                         <span>Pick a date</span>
                       )}
@@ -230,7 +258,9 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                     mode="single"
                     selected={field.value || undefined}
                     onSelect={field.onChange}
-                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                    disabled={(date) =>
+                      date < new Date(new Date().setHours(0, 0, 0, 0))
+                    }
                     initialFocus
                   />
                 </PopoverContent>
@@ -243,6 +273,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
           )}
         />
 
+        {/* Tags */}
         <FormField
           control={form.control}
           name="tags"
@@ -255,7 +286,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                 </FormDescription>
               </div>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                {tags.map((tag) => (
+                {(tags ?? []).map((tag) => (
                   <FormField
                     key={tag.id}
                     control={form.control}
@@ -270,18 +301,21 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                           <FormControl>
                             <Checkbox
                               checked={field.value?.includes(tag.id)}
-                              onCheckedChange={(checked) => {
-                                return checked
+                              onCheckedChange={(checked) =>
+                                checked
                                   ? field.onChange([...field.value, tag.id])
                                   : field.onChange(
                                       field.value?.filter(
-                                        (value) => value !== tag.id
-                                      )
-                                    );
-                              }}
+                                        (id) => id !== tag.id,
+                                      ),
+                                    )
+                              }
                             />
                           </FormControl>
-                          <FormLabel className="font-normal" style={{ color: tag.color }}>
+                          <FormLabel
+                            className="font-normal"
+                            style={{ color: tag.color }}
+                          >
                             {tag.name}
                           </FormLabel>
                         </FormItem>
@@ -300,7 +334,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
             Cancel
           </Button>
           <Button type="submit">
-            {mode === "create" ? "Create Task" : "Update Task"}
+            {mode === 'create' ? 'Create Task' : 'Update Task'}
           </Button>
         </div>
       </form>

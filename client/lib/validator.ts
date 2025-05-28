@@ -1,3 +1,4 @@
+import { PRIORITY_VALUES, STATUS_VALUES } from "@/types/task";
 import z from "zod";
 
 // Common validators
@@ -55,3 +56,13 @@ export const signUpFormSchema = z
     currentPassword: z.string().min(6, "Password must be at least 6 characters"),
     newPassword: z.string().min(6, "Password must be at least 6 characters"),
   });
+
+  export const formSchema = z.object({
+    title: z.string().min(1, "Title is required"),
+    description: z.string().optional(),
+    priority: z.enum(PRIORITY_VALUES),
+    status: z.enum(STATUS_VALUES),
+    dueDate: z.date().nullable(),
+    tags: z.array(z.string()),
+  });
+  

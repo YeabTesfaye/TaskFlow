@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { Task } from "@/types/task";
-import { TaskCard } from "@/components/task-card";
+import { Task } from '@/types/task';
+import { TaskCard } from '@/components/task-card';
 
 interface TaskGridProps {
   tasks: Task[];
 }
 
 export function TaskGrid({ tasks }: TaskGridProps) {
-  if (tasks.length === 0) {
+  if (!Array.isArray(tasks) || tasks.length === 0) {
     return (
       <div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
         <h3 className="text-lg font-semibold">No tasks found</h3>

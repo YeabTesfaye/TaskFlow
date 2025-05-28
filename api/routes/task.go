@@ -26,6 +26,9 @@ func RegisterTaskRoutes(r *mux.Router) {
 		Methods("PUT")
 	r.HandleFunc("/api/tasks/{id}", middleware.AuthMiddleware(controllers.DeleteTask)).
 		Methods("DELETE")
+	r.HandleFunc("/api/tasks/{id}/status", middleware.AuthMiddleware(
+			controllers.UpdateTaskStatus)).Methods("PATCH")
+
 
 	// Comment routes
 	r.HandleFunc("/api/tasks/{taskId}/comments", middleware.AuthMiddleware(
@@ -37,16 +40,11 @@ func RegisterTaskRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tasks/{taskId}/comments/{commentId}", middleware.AuthMiddleware(
 		controllers.DeleteComment)).Methods("DELETE")
 
-	// Category routes
-	r.HandleFunc("/api/categories", middleware.AuthMiddleware(
-		controllers.CreateCategory)).Methods("POST")
-	r.HandleFunc("/api/categories", middleware.AuthMiddleware(
-		controllers.GetCategories)).Methods("GET")
-	r.HandleFunc("/api/categories/{id}", middleware.AuthMiddleware(
-		controllers.UpdateCategory)).Methods("PUT")
-	r.HandleFunc("/api/categories/{id}", middleware.AuthMiddleware(
-		controllers.DeleteCategory)).Methods("DELETE")
-	r.HandleFunc("/api/tasks/category/{categoryId}", middleware.AuthMiddleware(
-		controllers.GetTasksByCategory)).Methods("GET")
+	// Tags route 
+	r.HandleFunc("/api/tags", middleware.AuthMiddleware(
+		controllers.CreateTag)).Methods("POST")
+	r.HandleFunc("/api/tags", middleware.AuthMiddleware(
+		controllers.GetUserTags))
+
 
 }

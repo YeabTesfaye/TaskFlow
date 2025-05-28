@@ -9,7 +9,8 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'TaskFlow - Modern Task Management',
-  description: 'A beautiful and intuitive task manager built with Next.js And Golang',
+  description:
+    'A beautiful and intuitive task manager built with Next.js And Golang',
 };
 
 export default function RootLayout({
