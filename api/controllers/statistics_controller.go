@@ -13,6 +13,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+
+
 func GetTaskStatistics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	ctx := context.Background()
@@ -67,17 +69,15 @@ func GetTaskStatistics(w http.ResponseWriter, r *http.Request) {
 		var results []bson.M
 		if err = cursor.All(ctx, &results); err == nil {
 			for _, result := range results {
-				priority, ok := result["_id"].(string)
-				if !ok {
-					continue
-				}
+				priority, _ := result["_id"].(string)
 				count, _ := result["count"].(int32)
 				priorityCounts[priority] = int(count)
 			}
 		}
 	}
 
-	// Build and return the statistics
+	// TODO: Add tag-based stats here if needed in future
+
 	stats := models.TaskStatistics{
 		ID:             primitive.NewObjectID(),
 		UserID:         userID,
@@ -93,92 +93,5 @@ func GetTaskStatistics(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-func GetTaskStatisticsByCategory(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 
-	userClaims := r.Context().Value("user").(*middleware.UserClaims)
-	ctx := context.Background()
 
-	now := time.Now()
-
-	pipeline := mongo.Pipeline{
-		// Match tasks owned by the user
-		bson.D{{Key: "$match", Value: bson.M{"user_id": userClaims.ID}}},
-
-		// Unwind categories array to group by each category
-		bson.D{{Key: "$unwind", Value: "$categories"}},
-
-		// Group by category ID
-		bson.D{{Key: "$group", Value: bson.M{
-			"_id":   "$categories",
-			"total": bson.M{"$sum": 1},
-			"completed": bson.M{"$sum": bson.M{
-				"$cond": bson.A{
-					bson.M{"$eq": bson.A{"$status", "Completed"}},
-					1,
-					0,
-				},
-			}},
-			"overdue": bson.M{"$sum": bson.M{
-				"$cond": bson.A{
-					bson.M{"$and": bson.A{
-						bson.M{"$lt": bson.A{"$due_date", now}},
-						bson.M{"$ne": bson.A{"$status", "Completed"}},
-					}},
-					1,
-					0,
-				},
-			}},
-		}}},
-
-		// Lookup category details
-		bson.D{{Key: "$lookup", Value: bson.M{
-			"from":         "categories",
-			"localField":   "_id",
-			"foreignField": "_id",
-			"as":           "category_info",
-		}}},
-
-		// Filter out categories with no match
-		bson.D{{Key: "$match", Value: bson.M{
-			"category_info": bson.M{"$ne": bson.A{}},
-		}}},
-
-		// Project the final result
-		bson.D{{Key: "$project", Value: bson.M{
-			"category_id": "$_id",
-			"category_name": bson.M{
-				"$arrayElemAt": bson.A{"$category_info.name", 0},
-			},
-			"total_tasks":     "$total",
-			"completed_tasks": "$completed",
-			"completion_rate": bson.M{
-				"$cond": bson.M{
-					"if":   bson.M{"$eq": bson.A{"$total", 0}},
-					"then": 0,
-					"else": bson.M{"$multiply": bson.A{
-						bson.M{"$divide": bson.A{"$completed", "$total"}},
-						100,
-					}},
-				},
-			},
-			"overdue_tasks": "$overdue",
-		}}},
-	}
-
-	cursor, err := taskCollection.Aggregate(ctx, pipeline)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to fetch category statistics"})
-		return
-	}
-
-	var results []bson.M
-	if err = cursor.All(ctx, &results); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to decode category statistics"})
-		return
-	}
-
-	json.NewEncoder(w).Encode(results)
-}

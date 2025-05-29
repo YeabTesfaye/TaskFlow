@@ -12,8 +12,7 @@ func RegisterTaskRoutes(r *mux.Router) {
 	// Task statistics routes
 	r.HandleFunc("/api/tasks/statistics", middleware.AuthMiddleware(
 		controllers.GetTaskStatistics)).Methods("GET")
-	r.HandleFunc("/api/tasks/statistics/by-category", middleware.AuthMiddleware(
-		controllers.GetTaskStatisticsByCategory)).Methods("GET")
+
 
 	// Task management routes
 	r.HandleFunc("/api/tasks", middleware.AuthMiddleware(controllers.CreateTask)).

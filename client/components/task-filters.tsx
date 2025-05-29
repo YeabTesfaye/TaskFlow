@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Priority, PRIORITY_VALUES, Status, STATUS_VALUES } from '@/types/task';
 import { useState } from 'react';
-import { Filter, SortAsc, SortDesc, CalendarDays } from 'lucide-react';
+import { Filter, SortAsc, SortDesc } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface TaskFiltersProps {

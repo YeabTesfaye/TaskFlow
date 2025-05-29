@@ -1,37 +1,37 @@
-"use client";
+'use client';
 
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, User, Settings, LogOut } from "lucide-react";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Search, User, LogOut } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 
 export function Header() {
   const [searchFocused, setSearchFocused] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem('token');
     setIsAuthenticated(!!token);
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    localStorage.removeItem('token');
     setIsAuthenticated(false);
-    router.push("/login");
+    router.push('/login');
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -61,14 +61,16 @@ export function Header() {
             </Link>
           </div>
 
-          {/* Search Bar - Only show when authenticated */}
+          {/* Search Bar */}
           {isAuthenticated && (
             <div className="flex-1 max-w-2xl">
               <form onSubmit={handleSearch}>
                 <div
                   className={cn(
-                    "relative transition-all duration-300 ease-in-out",
-                    searchFocused ? "w-full" : "w-[200px] md:w-[300px] lg:w-[400px]"
+                    'relative transition-all duration-300 ease-in-out',
+                    searchFocused
+                      ? 'w-full'
+                      : 'w-[200px] md:w-[300px] lg:w-[400px]',
                   )}
                 >
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -86,7 +88,7 @@ export function Header() {
             </div>
           )}
 
-          {/* Right Side Actions */}
+          {/* Right Actions */}
           <div className="flex items-center space-x-2">
             {isAuthenticated ? (
               <>
@@ -98,6 +100,9 @@ export function Header() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard">Dashboard</Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/user/profile">Profile</Link>
                     </DropdownMenuItem>

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Status } from './types/task';
-import { mapTask } from './lib/constant/inde';
+import { mapComment, mapTask } from './lib/constant/inde';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
@@ -126,4 +126,45 @@ export const tasks = {
 //     return response.data
 //   }
 // };
+
+export const comments = {
+  create: async (taskId: string, data: { content: string }) => {
+    const response = await api.post(`/tasks/${taskId}/comments`, data);
+    return mapComment(response.data);
+  },
+  getAll: async (taskId: string) => {
+    const response = await api.get(`/tasks/${taskId}/comments`);
+    const rawData = response.data;
+
+    if (!rawData.comments || !Array.isArray(rawData.comments)) return [];
+
+    return rawData.comments.map(mapComment);
+  },
+  update: async (
+    taskId: string,
+    commentId: string,
+    data: { content: string },
+  ) => {
+    const response = await api.put(
+      `/tasks/${taskId}/comments/${commentId}`,
+      data,
+    );
+    return mapComment(response.data);
+  },
+  delete: async (taskId: string, commentId: string) => {
+    const response = await api.delete(`/tasks/${taskId}/comments/${commentId}`);
+    return response.data;
+  },
+};
+
+export const statistics = {
+  getTaskStatistics: async () => {
+    const response = await api.get('/tasks/statistics');
+    return response.data;
+  },
+  getTaskStatisticsByCategory: async () => {
+    const response = await api.get('/tasks/statistics');
+    return response.data;
+  },
+};
 export default api;

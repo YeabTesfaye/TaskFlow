@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Task } from '@/types/task';
+import { CommentSection } from '@/components/comment-section';
 
 interface TaskEditorProps {
   task: Task;
@@ -42,6 +43,9 @@ export function TaskEditor({ task }: TaskEditorProps) {
           >
             <div className="rounded-lg border bg-card p-6 shadow-sm">
               <TaskForm task={task} mode="edit" />
+            </div>
+            <div className="rounded-lg border bg-card p-6 shadow-sm">
+              <CommentSection taskId={task.id} />
             </div>
           </motion.div>
         </div>

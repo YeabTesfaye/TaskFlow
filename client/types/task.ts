@@ -32,3 +32,24 @@ export interface Tag {
   color: string;
 }
 
+export interface Comment {
+  id: string;
+  taskId: string;
+  userId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+export interface Stats {
+  id: string;
+  user_id: string;
+  total_tasks: number;
+  completed_tasks: number;
+  pending_tasks: number;
+  overdue_tasks: number;
+  completion_rate: number;
+  average_completion: number;
+  by_priority: Record<string, number>;
+  by_category: Record<string, number> | null;
+  updated_at: string;
+}

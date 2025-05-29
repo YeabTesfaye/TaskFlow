@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var commentCollection = configs.GetCollection(configs.DB, "comments")
@@ -102,17 +103,10 @@ func UpdateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify comment ownership
-	var existingComment models.Comment
-	err = commentCollection.FindOne(context.Background(), bson.M{
+	// Ensure the comment belongs to the user
+	filter := bson.M{
 		"_id":     commentID,
 		"user_id": userClaims.ID,
-	}).Decode(&existingComment)
-
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Comment not found or unauthorized"})
-		return
 	}
 
 	update := bson.M{
@@ -122,11 +116,16 @@ func UpdateComment(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	_, err = commentCollection.UpdateOne(
+	// Return the updated document
+	opts := options.FindOneAndUpdate().SetReturnDocument(options.After)
+
+	var updatedComment models.Comment
+	err = commentCollection.FindOneAndUpdate(
 		context.Background(),
-		bson.M{"_id": commentID},
+		filter,
 		update,
-	)
+		opts,
+	).Decode(&updatedComment)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -134,8 +133,9 @@ func UpdateComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{"message": "Comment updated successfully"})
+	json.NewEncoder(w).Encode(updatedComment)
 }
+
 
 func DeleteComment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
