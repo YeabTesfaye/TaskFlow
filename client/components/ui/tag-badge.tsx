@@ -1,4 +1,4 @@
-import { Tag } from "@/types/task";
+import { Tag } from "@/types";
 import { cn } from "@/lib/utils";
 
 interface TagBadgeProps {

@@ -6,14 +6,21 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Task } from '@/types/task';
-import { CommentSection } from '@/components/comment-section';
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import Loading from '@/components/ui/loading';
 
-interface TaskEditorProps {
-  task: Task;
-}
+export default function NewTaskPage() {
+  const { isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, loading, router]);
 
-export function TaskEditor({ task }: TaskEditorProps) {
+  if (loading) return <Loading />;
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
@@ -32,7 +39,7 @@ export function TaskEditor({ task }: TaskEditorProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              Edit Task
+              Create New Task
             </motion.h1>
           </div>
 
@@ -42,10 +49,7 @@ export function TaskEditor({ task }: TaskEditorProps) {
             transition={{ duration: 0.4 }}
           >
             <div className="rounded-lg border bg-card p-6 shadow-sm">
-              <TaskForm task={task} mode="edit" />
-            </div>
-            <div className="rounded-lg border bg-card p-6 shadow-sm">
-              <CommentSection taskId={task.id} />
+              <TaskForm mode="create" />
             </div>
           </motion.div>
         </div>

@@ -1,4 +1,4 @@
-import { PRIORITY_VALUES, STATUS_VALUES } from '@/types/task';
+import { PRIORITY_VALUES, STATUS_VALUES } from '@/types';
 import z from 'zod';
 
 // Common validators
@@ -60,7 +60,7 @@ export const formSchema = z.object({
   priority: z.enum(PRIORITY_VALUES),
   status: z.enum(STATUS_VALUES),
   dueDate: z.date().nullable(),
-  tags: z.array(z.string()),
+  tags: z.array(z.string()).optional(),
 });
 
 export const commentSchema = z.object({

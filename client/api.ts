@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Status } from './types/task';
+import { Status } from './types';
 import { mapComment, mapTask } from './lib/constant/inde';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
@@ -116,16 +116,12 @@ export const tasks = {
   },
 };
 
-// export const tags = {
-//   create: async (data: { name: string; color: string }) => {
-//     const response = await api.post('/tags', data);
-//     return response.data;
-//   },
-//   getAll : async () => {
-//     const response = await api.get('/tags')
-//     return response.data
-//   }
-// };
+export const tags = {
+  getAll: async () => {
+    const response = await api.get('/tags');
+    return response.data;
+  },
+};
 
 export const comments = {
   create: async (taskId: string, data: { content: string }) => {

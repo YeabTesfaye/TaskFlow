@@ -13,7 +13,7 @@ export interface Task {
   status: Status;
   dueDate: Date | null;
   createdAt: Date;
-  tags: string[];
+  tags: Tag[];
 }
 export type FormValues = {
   title: string;

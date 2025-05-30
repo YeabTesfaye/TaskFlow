@@ -8,6 +8,7 @@ import (
 	"api/repositories"
 	"api/routes"
 	"api/services"
+	"api/utils"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,6 +30,9 @@ func main() {
 	// Connect to MongoDB
 	configs.ConnectDB()
 
+	// Seed Tag 
+	utils.SeedTags()
+
 	// Start background jobs
 	jobs.StartReminderJob()
 
@@ -40,6 +44,7 @@ func main() {
 	// Add middlewares
 	r.Use(middleware.RateLimit)
 	r.Use(middleware.SanitizeInput)
+	
 
 	// Register your routes
 	routes.RegisterUserRoutes(r, userController, profileController)

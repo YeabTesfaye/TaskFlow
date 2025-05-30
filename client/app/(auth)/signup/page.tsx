@@ -1,11 +1,22 @@
-"use client";
+'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { motion } from "framer-motion";
-import Link from "next/link";
-import SignUpForm from "./signup-form";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+import SignUpForm from './signup-form';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
+import { useEffect } from 'react';
 
 export default function SignupPage() {
+  const router = useRouter();
+  const { isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [loading, isAuthenticated, router]);
   return (
     <div className="container flex min-h-screen items-center justify-center p-4">
       <motion.div
@@ -16,12 +27,14 @@ export default function SignupPage() {
       >
         <Card className="w-full">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center">Sign Up</CardTitle>
+            <CardTitle className="text-2xl font-bold text-center">
+              Sign Up
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <SignUpForm />
             <div className="mt-4 text-center text-sm">
-              Already have an account?{" "}
+              Already have an account?{' '}
               <Link href="/login" className="text-primary hover:underline">
                 Login
               </Link>

@@ -1,6 +1,6 @@
 import { tasks } from '@/api';
 import { useState } from 'react';
-import { Status, STATUS_VALUES } from '@/types/task';
+import { Status, STATUS_VALUES } from '@/types';
 
 interface StatusUpdaterProps {
   taskId: string;

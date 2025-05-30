@@ -1,4 +1,4 @@
-import { Priority } from '@/types/task';
+import { Priority } from '@/types';
 import { cn } from '@/lib/utils';
 import { AlertTriangle, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
 

@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardFooter } from './ui/card';
 import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
-import { Comment } from '@/types/task';
+import { Comment } from '@/types';
 
 interface CommentProps {
   comment: Comment;

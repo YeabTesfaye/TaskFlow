@@ -1,95 +1,45 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { PlusCircle } from 'lucide-react';
 
 import { Header } from '@/components/layout/header';
+import { TaskFilters } from '@/components/task-filters';
 import { TaskGrid } from '@/components/task-grid';
-import { TaskFilters, FilterState } from '@/components/task-filters';
 import { Button } from '@/components/ui/button';
-import { Task } from '@/types/task';
-import { getTasks } from '@/lib/actions/task.action';
-import { initialTags } from '@/lib/data';
+import { useAuth } from '@/hooks/use-auth';
+import { useTasks } from '@/hooks/use-tasks';
+import { useTaskFilters } from '@/hooks/use-task-filters';
+import { filterTasks } from '@/lib/utils/filterTasks';
+import { Task } from '@/types';
+import { useEffect, useState } from 'react';
+import Loading from '@/components/ui/loading';
+import { useTags } from '@/hooks/useTags';
 
 export default function Home() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams?.get('search') || '';
-
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { isAuthenticated } = useAuth();
+  const { filters, setFilters } = useTaskFilters();
+  const { tasks, loading, refetch } = useTasks();
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
-  const [filters, setFilters] = useState<FilterState>({
-    statuses: ['Pending', 'In Progress', 'Completed'],
-    priorities: ['Low', 'Medium', 'High', 'Urgent'],
-    tagIds: [],
-    sortBy: 'createdAt',
-    sortDirection: 'desc',
-    view: 'grid',
-  });
+  const { tagList } = useTags();
 
   useEffect(() => {
-    const fetchTasks = async () => {
-      const fetchedTasks = await getTasks();
-      setTasks(fetchedTasks);
-    };
-    fetchTasks();
-  }, []);
-
-  useEffect(() => {
-    let filtered = [...tasks];
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (task) =>
-          task.title.toLowerCase().includes(q) ||
-          task.description.toLowerCase().includes(q),
-      );
-    }
-
-    filtered = filtered.filter((task) =>
-      filters.statuses.includes(task.status),
-    );
-
-    filtered = filtered.filter((task) =>
-      filters.priorities.includes(task.priority),
-    );
-
-    if (filters.tagIds.length > 0) {
-      filtered = filtered.filter((task) =>
-        task.tags.some((tagId) => filters.tagIds.includes(tagId)),
-      );
-    }
-
-    filtered.sort((a, b) => {
-      if (filters.sortBy === 'dueDate') {
-        const aDate = a.dueDate ? new Date(a.dueDate).getTime() : 0;
-        const bDate = b.dueDate ? new Date(b.dueDate).getTime() : 0;
-        return filters.sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
-      }
-
-      if (filters.sortBy === 'priority') {
-        const priorityOrder = { Low: 0, Medium: 1, High: 2, Urgent: 3 };
-        return filters.sortDirection === 'asc'
-          ? priorityOrder[a.priority] - priorityOrder[b.priority]
-          : priorityOrder[b.priority] - priorityOrder[a.priority];
-      }
-
-      const aCreated = new Date(a.createdAt).getTime();
-      const bCreated = new Date(b.createdAt).getTime();
-      return filters.sortDirection === 'asc'
-        ? aCreated - bCreated
-        : bCreated - aCreated;
-    });
-
-    setFilteredTasks(filtered);
+    const result = filterTasks(tasks, filters, searchQuery);
+    setFilteredTasks(result);
   }, [tasks, filters, searchQuery]);
 
-  const handleFilterChange = (newFilters: FilterState) => {
-    setFilters(newFilters);
+  const handleStatusChange = (taskId: string, newStatus: Task['status']) => {
+    refetch();
   };
 
+  const handleDelete = (taskId: string) => {
+    refetch();
+  };
+
+  if (loading) return <Loading />;
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
@@ -99,7 +49,12 @@ export default function Home() {
             <h1 className="text-3xl font-bold tracking-tight">
               {searchQuery ? `Search: "${searchQuery}"` : 'My Tasks'}
             </h1>
-            <Button asChild size="sm" className="w-full sm:w-auto">
+            <Button
+              asChild
+              size="sm"
+              className="w-full sm:w-auto"
+              disabled={!isAuthenticated}
+            >
               <Link href="/new">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 New Task
@@ -107,17 +62,11 @@ export default function Home() {
             </Button>
           </div>
 
-          <TaskFilters tags={initialTags} onFilterChange={handleFilterChange} />
+          <TaskFilters tags={tagList} onFilterChange={setFilters} />
 
-          <TaskGrid tasks={filteredTasks} />
-
-          {filteredTasks.length === 0 && tasks.length > 0 && (
-            <div className="mt-4 text-center text-sm text-muted-foreground">
-              No tasks match your current filters.
-            </div>
-          )}
-
-          {tasks.length === 0 && (
+          {loading ? (
+            <p className="text-muted-foreground">Loading tasks...</p>
+          ) : tasks.length === 0 ? (
             <div className="mt-8 flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 text-center">
               <h3 className="mb-2 text-xl font-medium">No tasks yet</h3>
               <p className="mb-6 text-muted-foreground">
@@ -130,6 +79,16 @@ export default function Home() {
                 </Link>
               </Button>
             </div>
+          ) : filteredTasks.length === 0 ? (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              No tasks match your current filters.
+            </div>
+          ) : (
+            <TaskGrid
+              tasks={filteredTasks}
+              onDelete={handleDelete}
+              onStatusChange={handleStatusChange}
+            />
           )}
         </div>
       </main>

@@ -9,13 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Priority, PRIORITY_VALUES, Status, STATUS_VALUES } from '@/types/task';
+import { Priority, PRIORITY_VALUES, Status, STATUS_VALUES } from '@/types';
 import { useState } from 'react';
 import { Filter, SortAsc, SortDesc } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface TaskFiltersProps {
-  onFilterChange: (filters: FilterState) => void;
+  onFilterChange(filters: FilterState): void;
+
   tags: { id: string; name: string; color: string }[];
 }
 

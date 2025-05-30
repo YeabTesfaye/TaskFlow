@@ -1,6 +1,8 @@
 package models
 
 import (
+	"errors"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -21,44 +23,42 @@ type Task struct {
 }
 
 func (t *Task) Validate() error {
-	// // Title
-	// t.Title = strings.TrimSpace(t.Title)
-	// if len(t.Title) < 3 || len(t.Title) > 100 {
-	// 	return errors.New("title must be between 3 and 100 characters")
-	// }
+	// Title
+	t.Title = strings.TrimSpace(t.Title)
+	if len(t.Title) < 3 || len(t.Title) > 100 {
+		return errors.New("title must be between 3 and 100 characters")
+	}
 
-	// // Description
-	// t.Description = strings.TrimSpace(t.Description)
-	// if len(t.Description) > 1000 {
-	// 	return errors.New("description cannot exceed 1000 characters")
-	// }
+	// Description
+	t.Description = strings.TrimSpace(t.Description)
+	if len(t.Description) > 1000 {
+		return errors.New("description cannot exceed 1000 characters")
+	}
 
-	// // Due Date
-	// if t.DueDate.Before(time.Now()) {
-	// 	return errors.New("due date cannot be in the past")
-	// }
+	// Due Date
+	if t.DueDate.Before(time.Now()) {
+		return errors.New("due date cannot be in the past")
+	}
 
-	// // Priority
-	// t.Priority = strings.TrimSpace(t.Priority)
-	// switch t.Priority {
-	// case "High", "Medium", "Low", "Urgent":
-	// default:
-	// 	return errors.New("priority must be High, Medium, Low, or Urgent")
-	// }
+	// Priority
+	t.Priority = strings.TrimSpace(t.Priority)
+	switch t.Priority {
+	case "High", "Medium", "Low", "Urgent":
+	default:
+		return errors.New("priority must be High, Medium, Low, or Urgent")
+	}
 
-	// // Status
-	// t.Status = strings.TrimSpace(t.Status)
-	// switch t.Status {
-	// case "Pending", "In Progress", "Completed":
-	// default:
-	// 	return errors.New("status must be Pending, In Progress, or Completed")
-	// }
+	// Status
+	t.Status = strings.TrimSpace(t.Status)
+	switch t.Status {
+	case "Pending", "In Progress", "Completed":
+	default:
+		return errors.New("status must be Pending, In Progress, or Completed")
+	}
 
-	// // UserID
-	// if t.UserID == "" {
-	// 	return errors.New("user ID is required")
-	// }
-
-	// return nil
+	// UserID
+	if t.UserID == "" {
+		return errors.New("user ID is required")
+	}
 	return nil
 }

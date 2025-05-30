@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { comments } from '@/api';
-import { Comment } from '@/types/task';
+import { Comment } from '@/types';
 import { CommentCard } from './comment-card';
 import { commentSchema } from '@/lib/validator';
 

@@ -1,14 +1,9 @@
-import { initialTags } from '@/lib/data';
+import { tags } from '@/api';
+import { Tag } from '@/types';
 import { useEffect, useState } from 'react';
 
-export interface Tag {
-  id: string;
-  name: string;
-  color: string;
-}
-
 export function useTags() {
-  const [tagList, setTagList] = useState<Tag[]>(initialTags);
+  const [tagList, setTagList] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,8 +11,13 @@ export function useTags() {
     const fetchTags = async () => {
       setLoading(true);
       try {
-        // const data = await tags.getAll();
-        setTagList(tagList);
+        const data = await tags.getAll();
+        setTagList(
+          data.map((tag: any, index: number) => ({
+            id: tag._id ?? `${tag.name}-${index}`,
+            color: tag.color,
+          })),
+        );
       } catch (error) {
         setError('Failed to load tags');
       } finally {
@@ -26,5 +26,6 @@ export function useTags() {
     };
     fetchTags();
   }, []);
+  console.log(tagList);
   return { tagList, loading, error };
 }

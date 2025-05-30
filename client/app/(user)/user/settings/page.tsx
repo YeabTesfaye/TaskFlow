@@ -1,33 +1,42 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/hooks/use-auth';
 import { user } from '@/api';
-// import { user } from '@/lib/api';
+
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+
+const defaultSettings = {
+  emailNotifications: false,
+  pushNotifications: false,
+  dailyDigest: false,
+};
 
 export default function SettingsPage() {
+  const [settings, setSettings] = useState(defaultSettings);
   const [isLoading, setIsLoading] = useState(false);
-  const [settings, setSettings] = useState({
-    emailNotifications: false,
-    pushNotifications: false,
-    dailyDigest: false,
-  });
   const { toast } = useToast();
+  const router = useRouter();
+  const { isAuthenticated, loading } = useAuth();
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const data = await user.getProfile();
+      const prefs = data.preferences ?? {};
       setSettings({
-        emailNotifications: data.preferences?.emailNotifications ?? false,
-        pushNotifications: data.preferences?.pushNotifications ?? false,
-        dailyDigest: data.preferences?.dailyDigest ?? false,
+        emailNotifications: prefs.emailNotifications ?? false,
+        pushNotifications: prefs.pushNotifications ?? false,
+        dailyDigest: prefs.dailyDigest ?? false,
       });
     } catch (error: any) {
       toast({
@@ -36,7 +45,22 @@ export default function SettingsPage() {
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [loading, isAuthenticated, router]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  const handleToggleChange =
+    (key: keyof typeof defaultSettings) => (checked: boolean) => {
+      setSettings((prev) => ({ ...prev, [key]: checked }));
+    };
 
   const handleSaveSettings = async () => {
     setIsLoading(true);
@@ -62,56 +86,44 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Notification Preferences</CardTitle>
-          <CardDescription>Manage how you receive notifications</CardDescription>
+          <CardDescription>
+            Manage how you receive notifications
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="font-medium">Email Notifications</div>
-              <div className="text-sm text-muted-foreground">
-                Receive notifications about your tasks via email
+          {[
+            {
+              label: 'Email Notifications',
+              description: 'Receive notifications about your tasks via email',
+              key: 'emailNotifications',
+            },
+            {
+              label: 'Push Notifications',
+              description: 'Receive notifications in your browser',
+              key: 'pushNotifications',
+            },
+            {
+              label: 'Daily Digest',
+              description: 'Receive a daily summary of your tasks',
+              key: 'dailyDigest',
+            },
+          ].map((item) => (
+            <div className="flex items-center justify-between" key={item.key}>
+              <div className="space-y-0.5">
+                <div className="font-medium">{item.label}</div>
+                <div className="text-sm text-muted-foreground">
+                  {item.description}
+                </div>
               </div>
+              <Switch
+                checked={settings[item.key as keyof typeof settings]}
+                onCheckedChange={handleToggleChange(
+                  item.key as keyof typeof settings,
+                )}
+                disabled={isLoading}
+              />
             </div>
-            <Switch
-              checked={settings.emailNotifications}
-              onCheckedChange={(checked) =>
-                setSettings({ ...settings, emailNotifications: checked })
-              }
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="font-medium">Push Notifications</div>
-              <div className="text-sm text-muted-foreground">
-                Receive notifications in your browser
-              </div>
-            </div>
-            <Switch
-              checked={settings.pushNotifications}
-              onCheckedChange={(checked) =>
-                setSettings({ ...settings, pushNotifications: checked })
-              }
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <div className="font-medium">Daily Digest</div>
-              <div className="text-sm text-muted-foreground">
-                Receive a daily summary of your tasks
-              </div>
-            </div>
-            <Switch
-              checked={settings.dailyDigest}
-              onCheckedChange={(checked) =>
-                setSettings({ ...settings, dailyDigest: checked })
-              }
-              disabled={isLoading}
-            />
-          </div>
+          ))}
 
           <Button
             onClick={handleSaveSettings}

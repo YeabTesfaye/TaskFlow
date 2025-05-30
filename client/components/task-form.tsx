@@ -3,7 +3,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -32,13 +31,13 @@ import {
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PRIORITY_VALUES, STATUS_VALUES, Tag, Task } from '@/types/task';
+import { PRIORITY_VALUES, STATUS_VALUES, Tag, Task } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { tasks } from '@/api';
 import { formSchema } from '@/lib/validator';
-import { initialTags } from '@/lib/data';
+import { useTags } from '@/hooks/useTags';
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -50,23 +49,7 @@ interface TaskFormProps {
 export function TaskForm({ task, mode }: TaskFormProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const [tags, setTags] = useState<Tag[]>(initialTags);
-
-  // Fetch tags on mount
-  useEffect(() => {
-    const fetchTags = async () => {
-      try {
-        setTags(initialTags);
-      } catch (error) {
-        toast({
-          title: 'Failed to load tags',
-          description: 'Please try again later.',
-          variant: 'destructive',
-        });
-      }
-    };
-    fetchTags();
-  }, [toast]);
+  const { tagList } = useTags() as { tagList: Tag[] };
 
   const defaultValues: FormValues = task
     ? {
@@ -75,7 +58,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
         priority: task.priority,
         status: task.status,
         dueDate: task.dueDate ? new Date(task.dueDate) : null,
-        tags: task.tags.map((tag) => tag),
+        tags: task.tags.map((tag) => (typeof tag === 'string' ? tag : tag.id)),
       }
     : {
         title: '',
@@ -272,12 +255,10 @@ export function TaskForm({ task, mode }: TaskFormProps) {
             </FormItem>
           )}
         />
-
-        {/* Tags */}
         <FormField
           control={form.control}
           name="tags"
-          render={() => (
+          render={({ field }) => (
             <FormItem>
               <div className="mb-4">
                 <FormLabel className="text-base">Tags</FormLabel>
@@ -286,42 +267,31 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                 </FormDescription>
               </div>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                {(tags ?? []).map((tag) => (
-                  <FormField
+                {tagList.map((tag) => (
+                  <div
                     key={tag.id}
-                    control={form.control}
-                    name="tags"
-                    render={({ field }) => {
-                      return (
-                        <FormItem
-                          key={tag.id}
-                          className="flex flex-row items-start space-x-2 space-y-0 rounded-md border p-2"
-                          style={{ borderColor: `${tag.color}50` }}
-                        >
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value?.includes(tag.id)}
-                              onCheckedChange={(checked) =>
-                                checked
-                                  ? field.onChange([...field.value, tag.id])
-                                  : field.onChange(
-                                      field.value?.filter(
-                                        (id) => id !== tag.id,
-                                      ),
-                                    )
-                              }
-                            />
-                          </FormControl>
-                          <FormLabel
-                            className="font-normal"
-                            style={{ color: tag.color }}
-                          >
-                            {tag.name}
-                          </FormLabel>
-                        </FormItem>
-                      );
-                    }}
-                  />
+                    className="flex flex-row items-start space-x-2 space-y-0 rounded-md border p-2"
+                    style={{ borderColor: `${tag.color}50` }}
+                  >
+                    <Checkbox
+                      id={`tag-${tag.id}`}
+                      checked={field.value?.includes(tag.id)}
+                      onCheckedChange={(checked) => {
+                        const currentTags = field.value || [];
+                        const newTags = checked
+                          ? [...currentTags, tag.id]
+                          : currentTags.filter((id) => id !== tag.id);
+                        field.onChange(newTags);
+                      }}
+                    />
+                    <FormLabel
+                      htmlFor={`tag-${tag.id}`}
+                      className="font-normal"
+                      style={{ color: tag.color }}
+                    >
+                      {tag.name}
+                    </FormLabel>
+                  </div>
                 ))}
               </div>
               <FormMessage />

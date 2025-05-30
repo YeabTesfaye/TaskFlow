@@ -1,4 +1,4 @@
-import { Status } from '@/types/task';
+import { Status } from '@/types';
 import { cn } from '@/lib/utils';
 import { CheckCircle2, Clock, RotateCw } from 'lucide-react';
 

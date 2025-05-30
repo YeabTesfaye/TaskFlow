@@ -39,11 +39,8 @@ func RegisterTaskRoutes(r *mux.Router) {
 	r.HandleFunc("/api/tasks/{taskId}/comments/{commentId}", middleware.AuthMiddleware(
 		controllers.DeleteComment)).Methods("DELETE")
 
-	// Tags route 
 	r.HandleFunc("/api/tags", middleware.AuthMiddleware(
-		controllers.CreateTag)).Methods("POST")
-	r.HandleFunc("/api/tags", middleware.AuthMiddleware(
-		controllers.GetUserTags))
+		controllers.GetTags))
 
 
 }
