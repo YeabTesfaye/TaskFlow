@@ -79,7 +79,6 @@ export const tasks = {
       tags: data.tags,
     };
 
-    console.log('Sending task data:', JSON.stringify(taskData, null, 2));
     const response = await api.post('/tasks', taskData);
     return response.data;
   },

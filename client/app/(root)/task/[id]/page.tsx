@@ -6,6 +6,7 @@ import { TaskEditor } from './TaskEditor';
 import { getTask } from '@/lib/actions/task.action';
 import { Task } from '@/types';
 import { useAuth } from '@/hooks/use-auth';
+import Loading from '@/components/ui/loading';
 
 interface EditTaskPageProps {
   params: { id: string };
@@ -36,7 +37,7 @@ const EditTaskPage = ({ params: { id } }: EditTaskPageProps) => {
     fetchTask();
   }, [id]);
 
-  if (!task) return <p>Loading...</p>;
+  if(!task) return <Loading />
 
   return <TaskEditor task={task} />;
 };

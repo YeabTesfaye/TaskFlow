@@ -58,7 +58,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
         priority: task.priority,
         status: task.status,
         dueDate: task.dueDate ? new Date(task.dueDate) : null,
-        tags: task.tags.map((tag) => (typeof tag === 'string' ? tag : tag.id)),
+        tags: task.tags,
       }
     : {
         title: '',
@@ -274,7 +274,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                     style={{ borderColor: `${tag.color}50` }}
                   >
                     <Checkbox
-                      id={`tag-${tag.id}`}
+                      id={tag.id}
                       checked={field.value?.includes(tag.id)}
                       onCheckedChange={(checked) => {
                         const currentTags = field.value || [];

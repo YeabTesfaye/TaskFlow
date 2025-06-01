@@ -12,11 +12,11 @@ export default function SignupPage() {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [loading, isAuthenticated, router]);
+  // useEffect(() => {
+  //   if (!loading && !isAuthenticated) {
+  //     router.push('/login');
+  //   }
+  // }, [loading, isAuthenticated, router]);
   return (
     <div className="container flex min-h-screen items-center justify-center p-4">
       <motion.div

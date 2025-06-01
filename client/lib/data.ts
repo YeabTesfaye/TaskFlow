@@ -1,4 +1,4 @@
-import {  Task } from '@/types'
+import { FilterState, Task } from '@/types';
 
 // Initial tasks for demo
 export const initialTasks: Task[] = [
@@ -33,3 +33,13 @@ export const initialTasks: Task[] = [
     tags: ['4'],
   },
 ];
+
+// Initial filter
+export const initialFilters: FilterState = {
+  statuses: ['Pending', 'In Progress', 'Completed'],
+  priorities: ['Low', 'Medium', 'High', 'Urgent'],
+  tagIds: [],
+  sortBy: 'createdAt',
+  sortDirection: 'desc',
+  view: 'grid',
+};

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import CredentialsSignInForm from './credentials-signin-form';
 import { useAuth } from '@/hooks/use-auth';
-import { redirect, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function LoginPage() {
@@ -35,7 +35,7 @@ export default function LoginPage() {
           <CardContent className="space-y-6">
             <CredentialsSignInForm />
             <div className="mt-4 text-center text-sm">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/signup" className="text-primary hover:underline">
                 Sign up
               </Link>

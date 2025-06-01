@@ -173,7 +173,9 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 			"due_date":    task.DueDate,
 			"priority":    task.Priority,
 			"status":      task.Status,
+			"tags" :       task.Tags, 
 			"updated_at":  task.UpdatedAt,
+			
 		},
 	}
 

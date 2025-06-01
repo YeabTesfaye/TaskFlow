@@ -14,7 +14,8 @@ export function useTags() {
         const data = await tags.getAll();
         setTagList(
           data.map((tag: any, index: number) => ({
-            id: tag._id ?? `${tag.name}-${index}`,
+            id: tag.id,
+            name: tag.name,
             color: tag.color,
           })),
         );
@@ -26,6 +27,5 @@ export function useTags() {
     };
     fetchTags();
   }, []);
-  console.log(tagList);
   return { tagList, loading, error };
 }

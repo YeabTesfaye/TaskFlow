@@ -13,16 +13,8 @@ export interface Task {
   status: Status;
   dueDate: Date | null;
   createdAt: Date;
-  tags: Tag[];
-}
-export type FormValues = {
-  title: string;
-  description?: string;
-  priority: Priority;
-  status: Status;
-  dueDate: Date | null;
   tags: string[];
-};
+}
 
 export type TaskFormValues = Omit<Task, 'id' | 'createdAt'>;
 
@@ -53,3 +45,17 @@ export interface Stats {
   by_category: Record<string, number> | null;
   updated_at: string;
 }
+
+export interface FilterState {
+  statuses: Status[];
+  priorities: Priority[];
+  tagIds: string[];
+  sortBy: 'dueDate' | 'priority' | 'createdAt';
+  sortDirection: 'asc' | 'desc';
+  view: 'grid' | 'list';
+}
+export const sortOptions = [
+  { value: 'createdAt', label: 'Creation Date' },
+  { value: 'dueDate', label: 'Due Date' },
+  { value: 'priority', label: 'Priority' },
+] as const;

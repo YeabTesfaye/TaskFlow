@@ -9,34 +9,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Priority, PRIORITY_VALUES, Status, STATUS_VALUES } from '@/types';
+import {
+  FilterState,
+  Priority,
+  PRIORITY_VALUES,
+  sortOptions,
+  Status,
+  STATUS_VALUES,
+  Tag,
+} from '@/types';
 import { useState } from 'react';
 import { Filter, SortAsc, SortDesc } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { initialFilters } from '@/lib/data';
 
 interface TaskFiltersProps {
   onFilterChange(filters: FilterState): void;
-
-  tags: { id: string; name: string; color: string }[];
+  tags: Tag[];
 }
-
-export interface FilterState {
-  statuses: Status[];
-  priorities: Priority[];
-  tagIds: string[];
-  sortBy: 'dueDate' | 'priority' | 'createdAt';
-  sortDirection: 'asc' | 'desc';
-  view: 'grid' | 'list';
-}
-
-const initialFilters: FilterState = {
-  statuses: ['Pending', 'In Progress', 'Completed'],
-  priorities: ['Low', 'Medium', 'High', 'Urgent'],
-  tagIds: [],
-  sortBy: 'createdAt',
-  sortDirection: 'desc',
-  view: 'grid',
-};
 
 export function TaskFilters({ onFilterChange, tags }: TaskFiltersProps) {
   const [filters, setFilters] = useState<FilterState>(initialFilters);
@@ -60,7 +50,6 @@ export function TaskFilters({ onFilterChange, tags }: TaskFiltersProps) {
       : [...filters.priorities, priority];
     updateFilters({ priorities });
   };
-
   const toggleTag = (tagId: string) => {
     const tagIds = filters.tagIds.includes(tagId)
       ? filters.tagIds.filter((id) => id !== tagId)
@@ -68,11 +57,7 @@ export function TaskFilters({ onFilterChange, tags }: TaskFiltersProps) {
     updateFilters({ tagIds });
   };
 
-  const sortOptions = [
-    { value: 'createdAt', label: 'Creation Date' },
-    { value: 'dueDate', label: 'Due Date' },
-    { value: 'priority', label: 'Priority' },
-  ] as const;
+  
 
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

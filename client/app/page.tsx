@@ -26,6 +26,7 @@ export default function Home() {
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const { tagList } = useTags();
 
+
   useEffect(() => {
     const result = filterTasks(tasks, filters, searchQuery);
     setFilteredTasks(result);
