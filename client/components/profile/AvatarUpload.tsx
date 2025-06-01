@@ -21,6 +21,7 @@ export function AvatarUpload({ profile, reload }: AvatarUploadProps) {
         title: 'Error',
         description: 'Upload an image',
         variant: 'destructive',
+        duration: 1000,
       });
       return;
     }
@@ -29,19 +30,25 @@ export function AvatarUpload({ profile, reload }: AvatarUploadProps) {
         title: 'Error',
         description: 'Max size 5MB',
         variant: 'destructive',
+        duration: 1000,
       });
       return;
     }
 
     try {
       await user.uploadProfilePicture(file);
-      toast({ title: 'Success', description: 'Profile picture updated' });
+      toast({
+        title: 'Success',
+        description: 'Profile picture updated',
+        duration: 1000,
+      });
       reload();
     } catch (err) {
       toast({
         title: 'Error',
         description: 'Upload failed',
         variant: 'destructive',
+        duration: 1000,
       });
     } finally {
       e.target.value = '';

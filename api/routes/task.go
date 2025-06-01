@@ -27,6 +27,10 @@ func RegisterTaskRoutes(r *mux.Router) {
 		Methods("DELETE")
 	r.HandleFunc("/api/tasks/{id}/status", middleware.AuthMiddleware(
 			controllers.UpdateTaskStatus)).Methods("PATCH")
+	r.HandleFunc("/api/tasks/collaborators/add", middleware.AuthMiddleware(
+		controllers.AddCollaborator)).Methods("POST")
+	r.HandleFunc("/api/tasks/collaborators/remove", middleware.AuthMiddleware(
+		controllers.RemoveCollaborator)).Methods("DELETE")
 
 
 	// Comment routes

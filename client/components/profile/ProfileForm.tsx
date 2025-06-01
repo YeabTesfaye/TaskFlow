@@ -23,13 +23,14 @@ export function ProfileForm({ profile, setProfile, reload }: ProfileFormProps) {
     const res = await updateProfile(null, formData);
 
     if (res.success) {
-      toast({ title: 'Success', description: res.message });
+      toast({ title: 'Success', description: res.message, duration: 1000 });
       reload();
     } else {
       toast({
         title: 'Error',
         description: res.message,
         variant: 'destructive',
+        duration: 1000,
       });
     }
 

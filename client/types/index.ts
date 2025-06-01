@@ -14,6 +14,8 @@ export interface Task {
   dueDate: Date | null;
   createdAt: Date;
   tags: string[];
+  collaborators: string[];
+  userId: string;
 }
 
 export type TaskFormValues = Omit<Task, 'id' | 'createdAt'>;

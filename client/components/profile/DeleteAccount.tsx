@@ -24,6 +24,7 @@ export function DeleteAccount() {
         title: 'Error',
         description: 'Failed to delete account',
         variant: 'destructive',
+        duration: 1000,
       });
     } finally {
       setLoading(false);

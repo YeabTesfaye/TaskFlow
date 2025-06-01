@@ -43,6 +43,7 @@ export default function SettingsPage() {
         title: 'Error',
         description: error.response?.data?.error || 'Failed to load settings',
         variant: 'destructive',
+        duration: 1000,
       });
     }
   }, [toast]);
@@ -69,12 +70,14 @@ export default function SettingsPage() {
       toast({
         title: 'Success',
         description: 'Settings updated successfully',
+        duration: 1000,
       });
     } catch (error: any) {
       toast({
         title: 'Error',
         description: error.response?.data?.error || 'Failed to update settings',
         variant: 'destructive',
+        duration: 1000,
       });
     } finally {
       setIsLoading(false);

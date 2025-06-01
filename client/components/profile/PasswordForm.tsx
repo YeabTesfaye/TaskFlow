@@ -21,7 +21,7 @@ export function PasswordForm() {
 
     const result = await updatePassword(null, formData);
     if (result.success) {
-      toast({ title: 'Success', description: result.message });
+      toast({ title: 'Success', description: result.message, duration: 1000 });
       setCurrentPassword('');
       setNewPassword('');
     } else {
@@ -29,6 +29,7 @@ export function PasswordForm() {
         title: 'Error',
         description: result.message,
         variant: 'destructive',
+        duration: 1000,
       });
     }
     setLoading(false);

@@ -38,6 +38,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { tasks } from '@/api';
 import { formSchema } from '@/lib/validator';
 import { useTags } from '@/hooks/useTags';
+import { CollaboratorManager } from './collaborator-manager';
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -59,14 +60,16 @@ export function TaskForm({ task, mode }: TaskFormProps) {
         status: task.status,
         dueDate: task.dueDate ? new Date(task.dueDate) : null,
         tags: task.tags,
+        collaborators: task.collaborators || [],
       }
     : {
         title: '',
         description: '',
         priority: 'Medium',
         status: 'Pending',
-        dueDate: null,
+        dueDate: new Date(),
         tags: [],
+        collaborators: [],
       };
 
   const form = useForm<FormValues>({
@@ -99,7 +102,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Something went wrong',
+        description: error?.response?.data?.message || 'Something went wrong',
         variant: 'destructive',
       });
     }
@@ -144,7 +147,7 @@ export function TaskForm({ task, mode }: TaskFormProps) {
                 />
               </FormControl>
               <FormDescription>
-                Optional: Include any important details or context
+                 Include any important details or context
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -255,6 +258,8 @@ export function TaskForm({ task, mode }: TaskFormProps) {
             </FormItem>
           )}
         />
+
+        {/* Tags Field */}
         <FormField
           control={form.control}
           name="tags"
@@ -299,6 +304,33 @@ export function TaskForm({ task, mode }: TaskFormProps) {
           )}
         />
 
+        {/* Collaborator Manager - only in edit mode */}
+        {mode === 'edit' && task && (
+          <FormField
+            control={form.control}
+            name="collaborators"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Collaborators</FormLabel>
+                <FormControl>
+                  <CollaboratorManager
+                    taskId={task.id}
+                    collaborators={field.value}
+                    onUpdate={() => {
+                      router.refresh();
+                    }}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Add or remove collaborators for this task
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {/* Submit / Cancel Buttons */}
         <div className="flex justify-end space-x-2">
           <Button variant="outline" type="button" onClick={() => router.back()}>
             Cancel

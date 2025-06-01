@@ -11,6 +11,9 @@ import { useTags } from '@/hooks/useTags';
 import { tasks } from '@/api';
 import { useState } from 'react';
 
+// Add to your imports
+import { Users } from 'lucide-react';
+
 interface TaskCardProps {
   task: Task;
   index: number;
@@ -24,6 +27,7 @@ export function TaskCard({
   onDelete,
   onStatusChange,
 }: TaskCardProps) {
+  console.log(task, 'Task Card');
   const { toast } = useToast();
   const { tagList } = useTags();
   const [localStatus, setLocalStatus] = useState<Task['status']>(task.status);
@@ -38,6 +42,7 @@ export function TaskCard({
       toast({
         title: 'Task updated',
         description: `Task status changed to ${status}`,
+        duration: 1000,
       });
     } catch (error: any) {
       toast({
@@ -45,6 +50,7 @@ export function TaskCard({
         description:
           error.response?.data?.message || 'Failed to update task status',
         variant: 'destructive',
+        duration: 1000,
       });
     }
   };
@@ -55,6 +61,7 @@ export function TaskCard({
       toast({
         title: 'Task deleted',
         description: 'The task has been removed',
+        duration: 1000,
       });
       onDelete();
     } catch (error: any) {
@@ -62,6 +69,7 @@ export function TaskCard({
         title: 'Error',
         description: error.response?.data?.message || 'Failed to delete task',
         variant: 'destructive',
+        duration: 1000,
       });
     }
   };
@@ -85,7 +93,17 @@ export function TaskCard({
           tags={taskTags}
           onStatusChange={handleStatusChange}
         />
+        <div className="flex items-center gap-2">
+          {task.collaborators?.length > 0 && (
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Users size={16} />
+              <span className="text-sm">{task.collaborators.length}</span>
+            </div>
+          )}
+        </div>
       </Card>
     </motion.div>
   );
 }
+
+// Add to your TaskCard component's return JSX

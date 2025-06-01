@@ -9,18 +9,21 @@ import (
 )
 
 type Task struct {
-	ID          primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	Title       string             `json:"title" bson:"title"`
-	Description string             `json:"description" bson:"description"`
-	DueDate     time.Time          `json:"due_date" bson:"due_date"`
-	Priority    string             `json:"priority" bson:"priority"` // High, Medium, Low, Urgent
-	Status      string             `json:"status" bson:"status"`     // Pending, In Progress, Completed
-	UserID      string             `json:"user_id" bson:"user_id"`
-	Tags        []string           `json:"tags" bson:"tags"`
-    CreatedAt   time.Time          `json:"created_at" bson:"created_at"`
-	UpdatedAt   time.Time          `json:"updated_at" bson:"updated_at"`
-	CompletedAt *time.Time         `json:"completed_at,omitempty" bson:"completed_at,omitempty"`
+    ID               primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+    Title            string             `json:"title" bson:"title"`
+    Description      string             `json:"description" bson:"description"`
+    DueDate          time.Time          `json:"due_date" bson:"due_date"`
+    Priority         string             `json:"priority" bson:"priority"`
+    Status           string             `json:"status" bson:"status"`
+    UserID           string             `json:"user_id" bson:"user_id"`
+    Collaborators    []string           `json:"collaborators" bson:"collaborators"`
+    Tags             []string           `json:"tags" bson:"tags"`
+    CreatedAt        time.Time          `json:"created_at" bson:"created_at"`
+    UpdatedAt        time.Time          `json:"updated_at" bson:"updated_at"`
+    CompletedAt      *time.Time         `json:"completed_at,omitempty" bson:"completed_at,omitempty"`
+    HourReminderSent bool               `json:"hour_reminder_sent" bson:"hour_reminder_sent"`
 }
+
 
 func (t *Task) Validate() error {
 	// Title

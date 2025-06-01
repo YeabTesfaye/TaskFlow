@@ -113,6 +113,20 @@ export const tasks = {
     const response = await api.patch(`/tasks/${id}/status`, data);
     return response.data;
   },
+  addCollaborator: async (taskId: string, collaboratorId: string) => {
+    const response = await api.post(`/tasks/collaborators/add`, {
+      task_id: taskId,
+      collaborator_id: collaboratorId,
+    });
+    return response.data;
+  },
+  removeCollaborator: async (taskId: string, collaboratorId: string) => {
+    const response = await api.post(`/tasks/collaborators/remove`, {
+      task_id: taskId,
+      collaborator_id: collaboratorId,
+    });
+    return response.data;
+  }
 };
 
 export const tags = {

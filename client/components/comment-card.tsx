@@ -26,6 +26,7 @@ export function CommentCard({ comment, onDelete, onUpdate }: CommentProps) {
         title: 'Invalid input',
         description: 'Comment content cannot be empty.',
         variant: 'destructive',
+        duration: 1000,
       });
       return;
     }
@@ -36,6 +37,7 @@ export function CommentCard({ comment, onDelete, onUpdate }: CommentProps) {
       toast({
         title: 'Comment updated',
         description: 'Your comment has been updated successfully.',
+        duration: 1000,
       });
     } catch (error: any) {
       toast({
@@ -43,6 +45,7 @@ export function CommentCard({ comment, onDelete, onUpdate }: CommentProps) {
         description:
           error.response?.data?.message || 'Failed to update comment.',
         variant: 'destructive',
+        duration: 1000,
       });
     } finally {
       setIsUpdating(false);
@@ -56,6 +59,7 @@ export function CommentCard({ comment, onDelete, onUpdate }: CommentProps) {
       toast({
         title: 'Comment deleted',
         description: 'The comment has been removed.',
+        duration: 1000,
       });
     } catch (error: any) {
       toast({
@@ -63,6 +67,7 @@ export function CommentCard({ comment, onDelete, onUpdate }: CommentProps) {
         description:
           error.response?.data?.message || 'Failed to delete comment.',
         variant: 'destructive',
+        duration: 1000,
       });
     } finally {
       setIsDeleting(false);

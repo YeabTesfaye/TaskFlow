@@ -60,7 +60,8 @@ export const formSchema = z.object({
   priority: z.enum(PRIORITY_VALUES),
   status: z.enum(STATUS_VALUES),
   dueDate: z.date().nullable(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).default([]),
+  collaborators: z.array(z.string()).default([]),
 });
 
 export const commentSchema = z.object({

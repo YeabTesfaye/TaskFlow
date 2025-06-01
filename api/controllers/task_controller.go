@@ -7,6 +7,7 @@ import (
 	"api/utils"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -67,7 +68,13 @@ func GetUserTasks(w http.ResponseWriter, r *http.Request) {
 	userClaims := r.Context().Value("user").(*middleware.UserClaims)
 	params := utils.GetPaginationFromRequest(r)
 
-	baseFilter := bson.M{"user_id": userClaims.ID}
+	baseFilter := bson.M{
+        "$or": []bson.M{
+            {"user_id": userClaims.ID},
+            {"collaborators": userClaims.ID},
+        },
+    }
+    
 	dateRange := &utils.DateRange{
 		StartDate: r.URL.Query().Get("start_date"),
 		EndDate:   r.URL.Query().Get("end_date"),
@@ -315,3 +322,107 @@ func UpdateTaskStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	utils.SendJSON(w, updatedTask)
 }
+
+
+// Collaboration endpoints
+func AddCollaborator(w http.ResponseWriter, r *http.Request) {
+    userClaims := r.Context().Value("user").(*middleware.UserClaims)
+    
+    var request struct {
+        TaskID        string `json:"task_id"`
+        CollaboratorID string `json:"collaborator_id"`
+    }
+    
+    if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+        utils.SendError(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+    
+    taskID, err := primitive.ObjectIDFromHex(request.TaskID)
+    if err != nil {
+        utils.SendError(w, "Invalid task ID", http.StatusBadRequest)
+        return
+    }
+    
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    
+    // Check if user owns the task
+    task, err := getTaskByID(ctx, taskID, userClaims.ID)
+    if err != nil {
+        utils.SendError(w, "Task not found", http.StatusNotFound)
+        return
+    }
+
+	fmt.Println(task)
+    
+    // Update collaborators
+    update := bson.M{
+        "$addToSet": bson.M{"collaborators": request.CollaboratorID},
+        "$set": bson.M{"updated_at": time.Now()},
+    }
+    
+    _, err = taskCollection.UpdateOne(
+        ctx,
+        bson.M{"_id": taskID},
+        update,
+    )
+    
+    if err != nil {
+        utils.SendError(w, "Failed to add collaborator", http.StatusInternalServerError)
+        return
+    }
+    
+    utils.SendJSON(w, map[string]string{"message": "Collaborator added successfully"})
+}
+
+func RemoveCollaborator(w http.ResponseWriter, r *http.Request) {
+    userClaims := r.Context().Value("user").(*middleware.UserClaims)
+    
+    var request struct {
+        TaskID        string `json:"task_id"`
+        CollaboratorID string `json:"collaborator_id"`
+    }
+    
+    if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+        utils.SendError(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+    
+    taskID, err := primitive.ObjectIDFromHex(request.TaskID)
+    if err != nil {
+        utils.SendError(w, "Invalid task ID", http.StatusBadRequest)
+        return
+    }
+    
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    
+    // Check if user owns the task
+    task, err := getTaskByID(ctx, taskID, userClaims.ID)
+    if err != nil {
+        utils.SendError(w, "Task not found", http.StatusNotFound)
+        return
+    }
+	println(task)
+    
+    // Remove collaborator
+    update := bson.M{
+        "$pull": bson.M{"collaborators": request.CollaboratorID},
+        "$set": bson.M{"updated_at": time.Now()},
+    }
+    
+    _, err = taskCollection.UpdateOne(
+        ctx,
+        bson.M{"_id": taskID},
+        update,
+    )
+    
+    if err != nil {
+        utils.SendError(w, "Failed to remove collaborator", http.StatusInternalServerError)
+        return
+    }
+    
+    utils.SendJSON(w, map[string]string{"message": "Collaborator removed successfully"})
+}
+
