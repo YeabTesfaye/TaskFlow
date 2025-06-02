@@ -65,6 +65,22 @@ export const user = {
     });
     return response.data;
   },
+  updatePreferences: async (preferences: {
+    timezone?: string;
+    emailNotifications: boolean;
+    pushNotifications: boolean;
+    dailyDigest: boolean;
+  }) => {
+    const payload = {
+      timezone: preferences.timezone || 'UTC', 
+      email_notifications: preferences.emailNotifications,
+      push_notifications: preferences.pushNotifications,
+      daily_digest: preferences.dailyDigest,
+    };
+
+    const response = await api.put('/users/preferences', payload);
+    return response.data;
+  },
 };
 
 export const tasks = {
@@ -126,7 +142,7 @@ export const tasks = {
       collaborator_id: collaboratorId,
     });
     return response.data;
-  }
+  },
 };
 
 export const tags = {

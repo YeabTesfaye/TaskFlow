@@ -27,7 +27,6 @@ export function TaskCard({
   onDelete,
   onStatusChange,
 }: TaskCardProps) {
-  console.log(task, 'Task Card');
   const { toast } = useToast();
   const { tagList } = useTags();
   const [localStatus, setLocalStatus] = useState<Task['status']>(task.status);

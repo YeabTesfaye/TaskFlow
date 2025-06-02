@@ -15,15 +15,18 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { notificationSettings } from '@/lib/data';
+import { Settings } from '@/types';
 
 const defaultSettings = {
+  timezone: 'UTC',
   emailNotifications: false,
   pushNotifications: false,
   dailyDigest: false,
 };
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState(defaultSettings);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -34,6 +37,7 @@ export default function SettingsPage() {
       const data = await user.getProfile();
       const prefs = data.preferences ?? {};
       setSettings({
+        timezone: prefs.timezone || 'UTC',
         emailNotifications: prefs.emailNotifications ?? false,
         pushNotifications: prefs.pushNotifications ?? false,
         dailyDigest: prefs.dailyDigest ?? false,
@@ -58,7 +62,7 @@ export default function SettingsPage() {
     loadSettings();
   }, [loadSettings]);
 
-  const handleToggleChange =
+  const handleToggleChange: any =
     (key: keyof typeof defaultSettings) => (checked: boolean) => {
       setSettings((prev) => ({ ...prev, [key]: checked }));
     };
@@ -66,7 +70,7 @@ export default function SettingsPage() {
   const handleSaveSettings = async () => {
     setIsLoading(true);
     try {
-      await user.updateProfile({ preferences: settings });
+      await user.updatePreferences(settings);
       toast({
         title: 'Success',
         description: 'Settings updated successfully',
@@ -94,23 +98,7 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {[
-            {
-              label: 'Email Notifications',
-              description: 'Receive notifications about your tasks via email',
-              key: 'emailNotifications',
-            },
-            {
-              label: 'Push Notifications',
-              description: 'Receive notifications in your browser',
-              key: 'pushNotifications',
-            },
-            {
-              label: 'Daily Digest',
-              description: 'Receive a daily summary of your tasks',
-              key: 'dailyDigest',
-            },
-          ].map((item) => (
+          {notificationSettings.map((item) => (
             <div className="flex items-center justify-between" key={item.key}>
               <div className="space-y-0.5">
                 <div className="font-medium">{item.label}</div>
@@ -119,15 +107,12 @@ export default function SettingsPage() {
                 </div>
               </div>
               <Switch
-                checked={settings[item.key as keyof typeof settings]}
-                onCheckedChange={handleToggleChange(
-                  item.key as keyof typeof settings,
-                )}
+                checked={settings[item.key]}
+                onCheckedChange={handleToggleChange(item.key)}
                 disabled={isLoading}
               />
             </div>
           ))}
-
           <Button
             onClick={handleSaveSettings}
             disabled={isLoading}

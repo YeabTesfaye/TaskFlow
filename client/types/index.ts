@@ -61,3 +61,10 @@ export const sortOptions = [
   { value: 'dueDate', label: 'Due Date' },
   { value: 'priority', label: 'Priority' },
 ] as const;
+
+export type Settings = {
+  timezone: string;
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  dailyDigest: boolean;
+};
